@@ -53,4 +53,7 @@ export function migrate(d: Database.Database) {
       finished INTEGER, items INTEGER, errors INTEGER, note TEXT
     );
   `);
+  const cols = (d.prepare("PRAGMA table_info(coins)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("total_supply")) d.exec("ALTER TABLE coins ADD COLUMN total_supply REAL");
+  d.exec("CREATE TABLE IF NOT EXISTS swap_coverage (address TEXT PRIMARY KEY, since INTEGER NOT NULL)");
 }

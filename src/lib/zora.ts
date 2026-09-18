@@ -31,7 +31,7 @@ export type ListCoin = {
   address: string; symbol: string; name: string; coinType: string; createdAt: string;
   creatorAddress: string; creatorHandle: string | null;
   uniqueHolders: number; marketCap: number; volume24h: number; totalVolume: number;
-  marketCapDelta24h: number; priceUsd: number | null;
+  marketCapDelta24h: number; priceUsd: number | null; totalSupply: number;
 };
 
 function toListCoin(n: any): ListCoin {
@@ -49,6 +49,7 @@ function toListCoin(n: any): ListCoin {
     totalVolume: Number(n.totalVolume ?? 0),
     marketCapDelta24h: Number(n.marketCapDelta24h ?? 0),
     priceUsd: n.tokenPrice?.priceInUsdc != null ? Number(n.tokenPrice.priceInUsdc) : null,
+    totalSupply: Number(n.totalSupply ?? 0), // whole tokens (balances come in wei)
   };
 }
 

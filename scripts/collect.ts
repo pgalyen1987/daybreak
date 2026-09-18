@@ -30,9 +30,9 @@ async function snapshots() {
   const run = startRun("snapshots");
   const coins = await universe(PAGES_PER_LIST);
   log(`universe: ${coins.length} creator coins`);
-  const upCoin = db.prepare(`INSERT INTO coins (address, symbol, name, coin_type, creator_address, creator_handle, created_at, first_seen, last_seen)
-    VALUES (@address, @symbol, @name, @coinType, @creatorAddress, @creatorHandle, @createdAt, @now, @now)
-    ON CONFLICT(address) DO UPDATE SET symbol=excluded.symbol, name=excluded.name, creator_handle=excluded.creator_handle, last_seen=excluded.last_seen`);
+  const upCoin = db.prepare(`INSERT INTO coins (address, symbol, name, coin_type, creator_address, creator_handle, created_at, first_seen, last_seen, total_supply)
+    VALUES (@address, @symbol, @name, @coinType, @creatorAddress, @creatorHandle, @createdAt, @now, @now, @totalSupply)
+    ON CONFLICT(address) DO UPDATE SET symbol=excluded.symbol, name=excluded.name, creator_handle=excluded.creator_handle, last_seen=excluded.last_seen, total_supply=excluded.total_supply`);
   const snap = db.prepare(`INSERT OR REPLACE INTO coin_snapshots (address, ts, holders, market_cap, volume_24h, total_volume, price_usd, mcap_delta_24h)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
   db.transaction(() => {
@@ -63,12 +63,16 @@ async function swaps() {
   const run = startRun("swaps");
   const coins = db.prepare("SELECT address FROM coins WHERE last_seen > ?").all(now - 3 * 24 * 3600 * 1000) as { address: string }[];
   const last = db.prepare("SELECT MAX(ts) AS ts FROM swaps WHERE address = ?");
+  const cover = db.prepare("INSERT OR IGNORE INTO swap_coverage (address, since) VALUES (?, ?)");
   const ins = db.prepare("INSERT OR IGNORE INTO swaps (id, address, ts, side, usd, coin_amount, trader, tx) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
   let total = 0, errors = 0, done = 0;
   await pool(coins, CONCURRENCY, async ({ address }) => {
     try {
-      const since = (last.get(address) as { ts: number | null }).ts ?? now - SWAP_LOOKBACK_MS;
+      const lastTs = (last.get(address) as { ts: number | null }).ts;
+      const since = lastTs ?? now - SWAP_LOOKBACK_MS;
       const rows = await recentSwaps(address, since, SWAP_MAX_PAGES);
+      // First fetch: coverage starts at the lookback, unless the page cap stopped us earlier.
+      if (lastTs === null) cover.run(address, rows.length >= SWAP_MAX_PAGES * 20 ? Math.min(...rows.map((r) => r.ts)) : since);
       db.transaction(() => { for (const s of rows) ins.run(s.id, address, s.ts, s.side, s.usd, s.coinAmount, s.trader, s.tx); })();
       total += rows.length;
     } catch (e) { errors++; log("swaps error", address, String(e).slice(0, 120)); }
