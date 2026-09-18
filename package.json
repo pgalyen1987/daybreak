@@ -1,0 +1,30 @@
+{
+  "name": "coin-lens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Analytics for Zora creator coins: holder churn, volume patterns, and the gap between a creator's audience and their coin's holders.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "collect": "tsx scripts/collect.ts"
+  },
+  "dependencies": {
+    "@zoralabs/coins-sdk": "^0.8.0",
+    "better-sqlite3": "^11.3.0",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
