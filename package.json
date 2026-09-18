@@ -1,12 +1,12 @@
 {
-  "name": "coin-lens",
+  "name": "daybreak",
   "version": "0.1.0",
   "private": true,
-  "description": "Analytics for Zora creator coins: holder churn, volume patterns, and the gap between a creator's audience and their coin's holders.",
+  "description": "Daybreak: free analytics for Zora creator coins. Holder churn, volume patterns, and creators whose audience hasn't found their coin yet.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "sh scripts/start.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "collect": "tsx scripts/collect.ts"
@@ -16,14 +16,14 @@
     "better-sqlite3": "^11.3.0",
     "next": "^14.2.5",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tsx": "^4.19.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }
