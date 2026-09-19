@@ -19,7 +19,7 @@ type Raw = {
 };
 
 const LATEST = `
-  SELECT c.address, c.symbol, c.name, c.image, c.creator_handle AS handle, s.holders, s.market_cap, s.volume_24h, s.mcap_delta_24h, s.price_usd, s.ts,
+  SELECT c.address, c.symbol, c.name, CASE WHEN c.image_ok = 0 THEN NULL ELSE c.image END AS image, c.creator_handle AS handle, s.holders, s.market_cap, s.volume_24h, s.mcap_delta_24h, s.price_usd, s.ts,
          so.twitter, so.farcaster, so.instagram, so.tiktok, so.twitter_user, so.farcaster_user, so.instagram_user, so.tiktok_user
   FROM coins c
   JOIN coin_snapshots s ON s.address = c.address AND s.ts = (SELECT MAX(ts) FROM coin_snapshots WHERE address = c.address)

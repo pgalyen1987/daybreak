@@ -58,7 +58,7 @@ export function LeaderboardView({ boards, defaultMin, view }: { boards: Boards; 
             <tr>
               <th className="l">#</th><th className="l">Creator</th>
               {(Object.keys(SORTS) as SortKey[]).map((k) => (
-                <th key={k} scope="col" className={`c-${k}`}><Link href={q({ sort: k })} aria-sort={sort === k ? (asc ? "ascending" : "descending") : undefined}>{SORTS[k]}</Link></th>
+                <th key={k} scope="col" className={`c-${k}`} aria-sort={sort === k ? (asc ? "ascending" : "descending") : undefined}><Link href={q({ sort: k })} aria-current={sort === k ? "true" : undefined}>{SORTS[k]}</Link></th>
               ))}
             </tr>
           </thead>

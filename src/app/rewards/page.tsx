@@ -62,7 +62,7 @@ export default function RewardsPage() {
           <section className="panel">
             <div className="facts">
               <div><b>{usd(s.total)}</b>paid, last {s.days} days</div>
-              {ROLES.map((r) => <div key={r}><b style={{ color: COLOR[r] }}>{s.total > 0 ? pct(s.byRole[r] / s.total, 1) : "0%"}</b>{TO[r]}</div>)}
+              {ROLES.map((r) => <div key={r}><b>{s.total > 0 ? pct(s.byRole[r] / s.total, 1) : "0%"}</b><i className="dot" style={{ background: COLOR[r] }} />{TO[r]}</div>)}
               <div><b>{int(s.payouts)}</b>payouts</div>
             </div>
             <p className="note">

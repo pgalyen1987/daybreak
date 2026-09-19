@@ -57,6 +57,8 @@ export function migrate(d: Database.Database) {
   const cols = (d.prepare("PRAGMA table_info(coins)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("total_supply")) d.exec("ALTER TABLE coins ADD COLUMN total_supply REAL");
   if (!cols.includes("image")) d.exec("ALTER TABLE coins ADD COLUMN image TEXT");
+  // 1 = Zora's CDN serves the image, 0 = it can't (a dead source), null = not checked yet
+  if (!cols.includes("image_ok")) d.exec("ALTER TABLE coins ADD COLUMN image_ok INTEGER");
   d.exec("CREATE TABLE IF NOT EXISTS swap_coverage (address TEXT PRIMARY KEY, since INTEGER NOT NULL)");
   // Trading rewards (lib/rewards.ts): raw payouts for a day, daily totals per
   // wallet and per coin for 35, per role for good

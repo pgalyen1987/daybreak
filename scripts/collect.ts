@@ -10,6 +10,7 @@
 import { open } from "../src/lib/db";
 import { chunks, blockTime, decodeReward, ROLES, USDC, ZORA_TOKEN, MARKET_TOPIC, CREATOR_TOPIC, zoraUsd, type RawLog, type Reward } from "../src/lib/rewards";
 import { coinQuote, holders, pool, profileHandle, profileSocials, recentSwaps, trendUniverse, universe } from "../src/lib/zora";
+import { thumb } from "../src/lib/images";
 
 const PAGES_PER_LIST = Number(process.env.PAGES_PER_LIST || 10);
 const CONCURRENCY = Number(process.env.CONCURRENCY || 3);
@@ -40,7 +41,8 @@ async function snapshots() {
   const upCoin = db.prepare(`INSERT INTO coins (address, symbol, name, coin_type, creator_address, creator_handle, created_at, first_seen, last_seen, total_supply, image)
     VALUES (@address, @symbol, @name, @coinType, @creatorAddress, @creatorHandle, @createdAt, @now, @now, @totalSupply, @image)
     ON CONFLICT(address) DO UPDATE SET symbol=excluded.symbol, name=excluded.name, creator_handle=excluded.creator_handle, last_seen=excluded.last_seen, total_supply=excluded.total_supply,
-      image=COALESCE(excluded.image, coins.image)`);
+      image=COALESCE(excluded.image, coins.image),
+      image_ok=CASE WHEN excluded.image IS NOT NULL AND excluded.image IS NOT coins.image THEN NULL ELSE coins.image_ok END`);
   const snap = db.prepare(`INSERT OR REPLACE INTO coin_snapshots (address, ts, holders, market_cap, volume_24h, total_volume, price_usd, mcap_delta_24h)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
   db.transaction(() => {
@@ -49,6 +51,22 @@ async function snapshots() {
       snap.run(c.address, now, c.uniqueHolders, c.marketCap, c.volume24h, c.totalVolume, c.priceUsd, c.marketCapDelta24h);
     }
   })();
+  // Some coin art points at a source that's gone (Zora's CDN answers 500), which would show as a
+  // broken request on every page. Each image is fetched once, as the small thumb the pages use.
+  const unchecked = db.prepare("SELECT address, image FROM coins WHERE image IS NOT NULL AND image_ok IS NULL").all() as { address: string; image: string }[];
+  const mark = db.prepare("UPDATE coins SET image_ok = ? WHERE address = ?");
+  let dead = 0;
+  for (let i = 0; i < unchecked.length; i += 8) {
+    const batch = unchecked.slice(i, i + 8);
+    const oks = await Promise.all(batch.map(async (c) => {
+      try {
+        const r = await fetch(thumb(c.image, 32)!, { signal: AbortSignal.timeout(10000) });
+        return r.ok && (r.headers.get("content-type") || "").startsWith("image/");
+      } catch { return null; } // a timeout says nothing about the image: check again next run
+    }));
+    batch.forEach((c, j) => { if (oks[j] !== null) { mark.run(oks[j] ? 1 : 0, c.address); if (!oks[j]) dead++; } });
+  }
+  if (unchecked.length) log(`images: checked ${unchecked.length}, ${dead} unavailable`);
 
   // Follower counts change slowly; refresh a creator at most once every 20 hours.
   const fresh = new Set((db.prepare("SELECT handle FROM social_snapshots WHERE ts > ?").all(now - 20 * 3600 * 1000) as { handle: string }[]).map((r) => r.handle));

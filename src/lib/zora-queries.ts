@@ -26,7 +26,7 @@ export function rewardsSummary(days = 7) {
       (SELECT handle FROM names WHERE address = ? AND handle IS NOT NULL AND handle NOT LIKE '0x%...%'),
       (SELECT creator_handle FROM coins WHERE creator_address = ? AND creator_handle IS NOT NULL LIMIT 1)) AS name`);
   // a wallet's picture: the art of the tracked creator coin it created, if any
-  const art = d.prepare("SELECT image FROM coins WHERE creator_address = ? AND image IS NOT NULL LIMIT 1");
+  const art = d.prepare("SELECT image FROM coins WHERE creator_address = ? AND image IS NOT NULL AND (image_ok IS NULL OR image_ok = 1) LIMIT 1");
   // Zora's own wallet: the protocol share's recipient, which also shows up as a platform referrer
   const zora = (d.prepare("SELECT protocol FROM rewards WHERE protocol IS NOT NULL GROUP BY protocol ORDER BY COUNT(*) DESC LIMIT 1").get() as { protocol: string } | undefined)?.protocol;
   const top = (role: Role, n = 10): Earner[] => (d.prepare(`SELECT recipient AS address, SUM(usd) AS usd, SUM(events) AS events

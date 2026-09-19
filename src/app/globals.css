@@ -56,13 +56,14 @@ h2 { font-size: 18px; font-weight: 600; line-height: 1.25; letter-spacing: -.015
 .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 .facts { display: flex; flex-wrap: wrap; gap: 12px 36px; }
 .facts div { color: var(--muted); font-size: 13px; }
+.facts .dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 6px; vertical-align: 1px; }
 .facts b { display: block; color: var(--ink); font: 600 22px/1.2 var(--font-text), system-ui, sans-serif; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-bottom: 2px; }
 
 .tablewrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
 table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 760px; }
 .sheet th { text-align: right; font: 500 13px/1.2 var(--font-text), system-ui, sans-serif; color: var(--muted); padding: 13px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .sheet th a { color: inherit; }
-.sheet th a[aria-sort] { color: var(--ink); }
+.sheet th[aria-sort] a { color: var(--ink); }
 .sheet td { text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .sheet tbody tr:hover td { background: var(--faint); }
 .sheet tr:last-child td { border-bottom: 0; }
@@ -73,7 +74,9 @@ table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .who:hover b { text-decoration: underline; text-underline-offset: 2px; }
 .who b { font-weight: 600; color: var(--ink); }
 .who span { color: var(--muted); font-size: 13px; }
-.avatar { display: inline-grid; place-items: center; flex: none; border-radius: 10px; object-fit: cover; background: var(--faint); font-weight: 600; line-height: 1; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .06); }
+.avatar { position: relative; display: inline-grid; place-items: center; flex: none; overflow: hidden; border-radius: 10px; background: var(--faint); font-weight: 600; line-height: 1; }
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.avatar::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .06); }
 .coinhead { display: flex; align-items: center; gap: 18px; }
 .coinhead .avatar { border-radius: 18px; }
 .plat { color: var(--muted); font-size: 12px; margin-left: 6px; }
