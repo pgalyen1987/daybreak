@@ -1,0 +1,26 @@
+{
+  "accountAssociation": {
+    "header": "PASTE FROM THE FARCASTER MANIFEST TOOL",
+    "payload": "PASTE FROM THE FARCASTER MANIFEST TOOL",
+    "signature": "PASTE FROM THE FARCASTER MANIFEST TOOL"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Daybreak",
+    "iconUrl": "https://daybreak.rebelstudiossoftware.com/icon.png",
+    "homeUrl": "https://daybreak.rebelstudiossoftware.com/",
+    "imageUrl": "https://daybreak.rebelstudiossoftware.com/embed.png",
+    "buttonTitle": "Open Daybreak",
+    "splashImageUrl": "https://daybreak.rebelstudiossoftware.com/splash.png",
+    "splashBackgroundColor": "#0e1422",
+    "subtitle": "Zora creator coin analytics",
+    "description": "Which Zora creators' audiences haven't found their coin yet, plus holder churn and trading patterns for every creator coin. Free, updated hourly.",
+    "primaryCategory": "finance",
+    "tags": ["zora", "creatorcoins", "analytics", "base"],
+    "tagline": "Where the holders aren't",
+    "heroImageUrl": "https://daybreak.rebelstudiossoftware.com/og.png",
+    "ogTitle": "Daybreak",
+    "ogDescription": "Analytics for Zora creator coins: the audience-to-holder gap, churn and trading.",
+    "ogImageUrl": "https://daybreak.rebelstudiossoftware.com/og.png"
+  }
+}
