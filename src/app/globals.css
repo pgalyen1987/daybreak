@@ -100,7 +100,15 @@ table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
   .wide { min-width: 680px; }
   .wide text { font-size: 17px; }
   .heat text { font-size: 15px; }
-  .sheet td, .sheet th { padding: 8px 6px; }
+  .sheet td, .sheet th { padding: 8px 5px; }
+  .panel { padding: 14px; }
   .home-gaps .plat { display: none; }
+  /* Tables fit the phone instead of scrolling sideways: the leaderboard keeps rank, creator,
+     score, audience and holders (the rest is on the coin page), and names give way first. */
+  table.sheet { min-width: 0; }
+  .sheet .c-conversion, .sheet .c-untapped, .sheet .c-marketCap, .sheet .plat, .who span { display: none; }
+  .who b { display: inline-block; max-width: 28vw; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+  .sheet th { white-space: normal; letter-spacing: 0; }
+  .sheet .rank { width: 22px; }
 }
 @media (prefers-reduced-motion: no-preference) { .btn { transition: opacity .15s; } }

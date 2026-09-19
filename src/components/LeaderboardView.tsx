@@ -57,7 +57,7 @@ export function LeaderboardView({ boards, defaultMin, view }: { boards: Boards; 
             <tr>
               <th className="l">#</th><th className="l">Creator</th>
               {(Object.keys(SORTS) as SortKey[]).map((k) => (
-                <th key={k} scope="col"><Link href={q({ sort: k })} aria-sort={sort === k ? (asc ? "ascending" : "descending") : undefined}>{SORTS[k]}</Link></th>
+                <th key={k} scope="col" className={`c-${k}`}><Link href={q({ sort: k })} aria-sort={sort === k ? (asc ? "ascending" : "descending") : undefined}>{SORTS[k]}</Link></th>
               ))}
             </tr>
           </thead>
@@ -67,15 +67,15 @@ export function LeaderboardView({ boards, defaultMin, view }: { boards: Boards; 
                 <td className="rank l">{i + 1}</td>
                 <td className="l"><Link href={`/coin/${r.address}/`} className="who"><b>@{r.handle ?? r.symbol}</b><span>${r.symbol}</span></Link></td>
                 <td className="score">{r.score}</td>
-                <td>{compact(r.reach)}<span className="plat">{PLATFORM[r.platform ?? ""] ?? ""}</span></td>
-                <td>{int(r.holders)}</td>
-                <td>
+                <td className="c-reach">{compact(r.reach)}<span className="plat">{PLATFORM[r.platform ?? ""] ?? ""}</span></td>
+                <td className="c-holders">{int(r.holders)}</td>
+                <td className="c-conversion">
                   <span className="meter">{(r.conversion * 1000).toFixed(2)}
                     <svg viewBox="0 0 84 8" aria-hidden="true"><rect width="84" height="8" rx="2" fill="var(--faint)" /><rect width={Math.max(2, Math.min(84, (84 * r.conversion * 1000) / METER_MAX))} height="8" rx="2" fill="var(--buy)" /></svg>
                   </span>
                 </td>
-                <td>{compact(r.untapped)}</td>
-                <td>{usd(r.marketCap)}</td>
+                <td className="c-untapped">{compact(r.untapped)}</td>
+                <td className="c-marketCap">{usd(r.marketCap)}</td>
               </tr>
             ))}
           </tbody>
