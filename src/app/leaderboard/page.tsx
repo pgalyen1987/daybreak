@@ -4,7 +4,7 @@ import { LeaderboardFromUrl, LeaderboardView } from "@/components/LeaderboardVie
 import { MINS, type Boards } from "@/lib/leaderboard";
 import { leads, MIN_HOLDERS } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "Gap leaderboard", description: "Zora creators ranked by how much of their audience hasn't found their coin yet." };
+export const metadata: Metadata = { title: "Gap leaderboard", description: "Zora creators ranked by how much of their audience hasn't found their coin yet.", alternates: { canonical: "/leaderboard/" } };
 
 // Built once an hour as a static page: every filter's rows ship with it and the browser picks
 // by the URL. The default view is in the HTML, so the table reads without JavaScript.

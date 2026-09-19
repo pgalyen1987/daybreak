@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { MIN_HOLDERS, POOL_MANAGER } from "@/lib/queries";
 import { MIN_REACH } from "@/lib/metrics";
 
-export const metadata: Metadata = { title: "How the numbers work", description: "Definitions, data sources and limits for every metric on Daybreak." };
+export const metadata: Metadata = { title: "How the numbers work", description: "Definitions, data sources and limits for every metric on Daybreak.", alternates: { canonical: "/method/" } };
 
 export default function Method() {
   return (

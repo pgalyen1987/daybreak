@@ -3,6 +3,18 @@ import { GapMap } from "@/components/charts";
 import { compact, int, PLATFORM } from "@/lib/format";
 import { Ago } from "@/components/Ago";
 import { leads, stats, MIN_HOLDERS } from "@/lib/queries";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
+
+const SITE = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Daybreak",
+  url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/`,
+  description: "Analytics for Zora creator coins: which creators' audiences haven't found their coin yet, plus holder churn and trading patterns.",
+  publisher: { "@type": "Organization", name: "Rebel Studios Software", url: "https://rebelstudiossoftware.com" },
+};
 
 export default function Home() {
   const rows = leads();
@@ -12,6 +24,7 @@ export default function Home() {
   const points = rows.map((r) => ({ key: r.address, label: "@" + (r.handle ?? r.symbol), reach: r.reach, holders: r.holders, score: r.score, hot: hot.has(r.address) }));
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE) }} />
       <section>
         <p className="kicker">The gap map</p>
         <h1>Where the audience is, and where the holders aren&apos;t</h1>

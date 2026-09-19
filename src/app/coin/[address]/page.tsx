@@ -19,6 +19,7 @@ export function generateMetadata({ params }: { params: { address: string } }): M
   const card = `/coin/${c.address}/card.png`;
   return {
     title: `$${c.symbol} holders, churn and trading`,
+    alternates: { canonical: `/coin/${c.address}/` },
     description: `${name}'s Zora creator coin: ${int(c.holders)} holders, trading patterns, holder churn and how much of their audience holds it.`,
     openGraph: { images: [{ url: card, width: 1200, height: 630 }] },
     // a cast of this page shows this coin's own 3:2 card
