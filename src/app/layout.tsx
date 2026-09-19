@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Tooltips } from "@/components/Tooltips";
 import { Nav } from "@/components/Nav";
 import { MiniApp } from "@/components/MiniApp";
+import { Analytics } from "@/components/Analytics";
 import { miniappMeta } from "@/lib/embed";
 import "./globals.css";
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${text.variable} ${mono.variable}`}>
       <body>
         <MiniApp />
+        <Analytics />
         <header className="top">
           <div className="wrap">
             <Link href="/" className="brand"><b>Day<span>break</span></b><small>for Zora creator coins</small></Link>
@@ -42,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span>Data from the Zora coins API. Not financial advice.</span>
             <Link href="/method">How the numbers work</Link>
             <a href="https://rebelstudiossoftware.com" target="_blank" rel="noopener noreferrer">Built by Rebel Studios</a>
+            <a href="https://rebelstudiossoftware.com/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a>
             <span>Not affiliated with Zora.</span>
           </div>
         </footer>
