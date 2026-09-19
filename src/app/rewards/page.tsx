@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 
 const COLOR: Record<Role, string> = { creator: "var(--gap)", platform: "var(--rest)", trade: "var(--buy)", protocol: "var(--muted)", doppler: "var(--sell)" };
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+const TO: Record<Role, string> = { creator: "to creators", platform: "to platform referrers", trade: "to trade referrers", protocol: "to the protocol (Zora)", doppler: "to Doppler" };
 
 function Earners({ title, rows, note }: { title: string; rows: Earner[]; note: string }) {
   return (
@@ -60,7 +61,7 @@ export default function RewardsPage() {
           <section className="panel">
             <div className="facts">
               <div><b>{usd(s.total)}</b>paid, last {s.days} days</div>
-              {ROLES.map((r) => <div key={r}><b style={{ color: COLOR[r] }}>{s.total > 0 ? pct(s.byRole[r] / s.total, 1) : "0%"}</b>to {ROLE_LABEL[r].toLowerCase()}</div>)}
+              {ROLES.map((r) => <div key={r}><b style={{ color: COLOR[r] }}>{s.total > 0 ? pct(s.byRole[r] / s.total, 1) : "0%"}</b>{TO[r]}</div>)}
               <div><b>{int(s.payouts)}</b>payouts</div>
             </div>
             <p className="note">
