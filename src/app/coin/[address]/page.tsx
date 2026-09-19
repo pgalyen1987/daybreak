@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FlowBars, Heatmap, HolderLine } from "@/components/charts";
+import { miniappMeta } from "@/lib/embed";
 import { compact, int, pct, PLATFORM, usd, zoraUrl } from "@/lib/format";
 import { allCoins, coinByAddress, coinTrades, holderChurn, holderSeries, leads, reach, topHolderShare } from "@/lib/queries";
 
@@ -20,6 +21,8 @@ export function generateMetadata({ params }: { params: { address: string } }): M
     title: `$${c.symbol} holders, churn and trading`,
     description: `${name}'s Zora creator coin: ${int(c.holders)} holders, trading patterns, holder churn and how much of their audience holds it.`,
     openGraph: { images: [{ url: card, width: 1200, height: 630 }] },
+    // a cast of this page shows this coin's own 3:2 card
+    other: miniappMeta(`/coin/${c.address}/embed.png`, `/coin/${c.address}/`, `$${c.symbol} on Daybreak`.slice(0, 32)),
     twitter: { card: "summary_large_image", images: [card] },
   };
 }

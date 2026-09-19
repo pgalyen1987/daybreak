@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Tooltips } from "@/components/Tooltips";
 import { Nav } from "@/components/Nav";
 import { MiniApp } from "@/components/MiniApp";
+import { miniappMeta } from "@/lib/embed";
 import "./globals.css";
 
 const display = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-display", display: "swap" });
@@ -19,21 +20,10 @@ export const metadata: Metadata = {
   // the gap map itself, drawn from the data by scripts/og-card.ts
   openGraph: { images: [{ url: "/og.png", width: 1200, height: 630, alt: "Daybreak's gap map of Zora creator coins" }], siteName: "Daybreak" },
   twitter: { card: "summary_large_image", images: ["/og.png"] },
-  // A cast linking the site shows the 3:2 gap-map card with a button that opens it as a mini app
-  // (fc:frame is the older name some clients still read).
-  other: {
-    "fc:miniapp": embed("launch_miniapp"),
-    "fc:frame": embed("launch_frame"),
-  },
+  // A cast linking the site shows the 3:2 gap-map card with a button that opens it as a mini app;
+  // coin pages set their own (lib/embed.ts).
+  other: miniappMeta("/embed.png", "/"),
 };
-
-function embed(type: string) {
-  return JSON.stringify({
-    version: "1",
-    imageUrl: `${APP}/embed.png`,
-    button: { title: "Open Daybreak", action: { type, name: "Daybreak", url: `${APP}/`, splashImageUrl: `${APP}/splash.png`, splashBackgroundColor: "#0e1422" } },
-  });
-}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
