@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { MIN_HOLDERS, POOL_MANAGER } from "@/lib/queries";
 import { MIN_REACH } from "@/lib/metrics";
@@ -30,6 +31,15 @@ export default function Method() {
 
       <h2>Concentration</h2>
       <p>The ten largest wallets&apos; share of total supply. The Uniswap v4 pool contract ({POOL_MANAGER.slice(0, 6)}…{POOL_MANAGER.slice(-4)}) holds each coin&apos;s trading liquidity, so it&apos;s reported separately rather than counted as a holder.</p>
+
+      <h2>Trading rewards</h2>
+      <p>Every trade on a Zora coin pays a fee that the coin&apos;s contract splits on the spot and announces in an event on Base. We read those events for every Zora coin, each hour, from the last block we saw: one event carries the five-way split (creator, the app that created the coin, the app that routed the trade, the protocol and Doppler), and a second carries the creator and protocol shares on creator-coin trades. Payouts come in ZORA or in a creator coin; we value ZORA from any coin priced in it and creator coins at their price when the payout was recorded. Payouts in a currency we couldn&apos;t price yet count as $0, and the page says what share that is. A wallet shows its Zora handle when it has a profile.</p>
+
+      <h2>Tags</h2>
+      <p>A Zora tag has its own coin (a trend coin). We take every tag in Zora&apos;s trending, most traded, newest and most valuable tag lists each hour, and once a day the holders of the 15 most traded, which is where shared holders come from. Zora&apos;s public API doesn&apos;t say how many posts carry a tag, so growth is measured in holders and trading.</p>
+
+      <h2>Checking a coin</h2>
+      <p>The <Link href="/check/">Check your coin</Link> page asks Zora&apos;s public API from your browser, so it works for any profile and nothing is stored. Its median is holders per 1,000 followers across the creators on the gap map with at least 1,000 followers and 10 holders.</p>
 
       <h2>Limits</h2>
       <ul>
