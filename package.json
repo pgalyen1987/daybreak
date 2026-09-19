@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "sh scripts/start.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "collect": "tsx scripts/collect.ts"
+    "collect": "tsx scripts/collect.ts",
+    "prune": "tsx scripts/prune.ts",
+    "serve": "python3 -m http.server 8099 --directory out"
   },
   "dependencies": {
     "@zoralabs/coins-sdk": "^0.8.0",

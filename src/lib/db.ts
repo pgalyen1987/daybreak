@@ -1,4 +1,5 @@
-// SQLite store. One file, WAL mode; on Railway it lives on a volume at DATA_DIR.
+// SQLite store. One file, WAL mode. In production it travels between hourly workflow runs as a
+// release asset (see .github/workflows/daybreak.yml); DATA_DIR moves it.
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";

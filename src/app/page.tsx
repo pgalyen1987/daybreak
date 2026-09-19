@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { GapMap } from "@/components/charts";
-import { compact, int, PLATFORM, ago } from "@/lib/format";
+import { compact, int, PLATFORM } from "@/lib/format";
+import { Ago } from "@/components/Ago";
 import { leads, stats, MIN_HOLDERS } from "@/lib/queries";
-
-export const dynamic = "force-dynamic";
 
 export default function Home() {
   const rows = leads();
@@ -62,7 +61,7 @@ export default function Home() {
             <div><b className="num">{int(rows.length)}</b>with an audience</div>
             <div><b className="num">{int(s.trades)}</b>trades recorded</div>
           </div>
-          <p className="note">Updated {s.lastSnapshot ? ago(s.lastSnapshot) : "not yet"}. <Link href="/method">How the numbers work</Link></p>
+          <p className="note">Updated {s.lastSnapshot ? <Ago ts={s.lastSnapshot} /> : "not yet"}. <Link href="/method">How the numbers work</Link></p>
         </div>
       </section>
     </>

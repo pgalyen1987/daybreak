@@ -1,0 +1,98 @@
+# Every hour: bring back the database, collect from the Zora coins API, save the database, build
+# the static site and publish it to GitHub Pages. Free for a public repository.
+#
+# The SQLite file lives as an asset on the "data" release (not in git history, which would
+# grow by megabytes an hour). Holder sets are fetched once a day: `collect holders` skips coins
+# already done today, so only the first run after midnight UTC does that work.
+name: Daybreak
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: daybreak
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Bring back the database
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data
+          gh release download data --pattern coinlens.sqlite --dir data --clobber || echo "No database yet; starting fresh."
+
+      - name: Collect
+        if: github.event_name != 'push'
+        env:
+          ZORA_API_KEY: ${{ secrets.ZORA_API_KEY }}
+        run: |
+          npx tsx scripts/collect.ts snapshots
+          npx tsx scripts/collect.ts swaps
+          npx tsx scripts/collect.ts holders
+
+      - name: Prune
+        run: npx tsx scripts/prune.ts
+
+      - name: Save the database
+        if: github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view data >/dev/null 2>&1 || gh release create data --title "Collector database" \
+            --notes "The SQLite file the hourly workflow reads and writes. Not a release of the site."
+          gh release upload data data/coinlens.sqlite --clobber
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_APP_URL: https://daybreak.rebelstudiossoftware.com
+        run: npm run build
+
+      - name: Pages files
+        run: |
+          touch out/.nojekyll
+          echo daybreak.rebelstudiossoftware.com > out/CNAME
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      # GitHub pauses scheduled workflows in a repository with no commits for 60 days. The data
+      # changes hourly but lives on a release, so leave a small commit once a month.
+      - name: Keep the schedule alive
+        if: github.event_name == 'schedule'
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt $(( 50 * 86400 )) ]; then
+            git config user.name "daybreak-bot"
+            git config user.email "daybreak-bot@users.noreply.github.com"
+            git commit --allow-empty -m "Keep the hourly schedule alive"
+            git push
+          fi

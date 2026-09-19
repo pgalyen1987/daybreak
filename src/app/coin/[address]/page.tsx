@@ -3,9 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FlowBars, Heatmap, HolderLine } from "@/components/charts";
 import { compact, int, pct, PLATFORM, usd, zoraUrl } from "@/lib/format";
-import { coinByAddress, coinTrades, holderChurn, holderSeries, leads, reach, topHolderShare } from "@/lib/queries";
+import { allCoins, coinByAddress, coinTrades, holderChurn, holderSeries, leads, reach, topHolderShare } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
+// One page per tracked coin, written at build time.
+export const dynamicParams = false;
+export function generateStaticParams() {
+  return allCoins().map((c) => ({ address: c.address }));
+}
 
 export function generateMetadata({ params }: { params: { address: string } }): Metadata {
   const c = coinByAddress(params.address);
