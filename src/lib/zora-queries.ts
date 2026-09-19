@@ -49,9 +49,12 @@ export function rewardsSummary(days = 7) {
 /** What one coin's trades paid its creator over the last `days` days (priced payouts only). */
 export function coinCreatorEarnings(address: string, days = 7) {
   if (!has("coin_reward_daily")) return null;
+  const from = new Date(Date.now() - days * DAY).toISOString().slice(0, 10);
   const r = open().prepare(`SELECT SUM(events) AS n, SUM(creator_usd) AS usd, SUM(unpriced) AS unpriced FROM coin_reward_daily WHERE coin = ? AND day >= ?`)
-    .get(address, new Date(Date.now() - days * DAY).toISOString().slice(0, 10)) as { n: number | null; usd: number | null; unpriced: number | null };
-  return r.n ? { payouts: r.n, usd: r.usd || 0, unpriced: r.unpriced || 0 } : null;
+    .get(address, from) as { n: number | null; usd: number | null; unpriced: number | null };
+  // payouts have only been recorded since the first rewards run: a "7 days" label would overstate the window
+  const first = (open().prepare("SELECT MIN(day) AS day FROM coin_reward_daily").get() as { day: string | null }).day;
+  return r.n ? { payouts: r.n, usd: r.usd || 0, unpriced: r.unpriced || 0, since: first && first > from ? first : null } : null;
 }
 
 export type Tag = { address: string; symbol: string; name: string; createdAt: string | null; holders: number; marketCap: number;

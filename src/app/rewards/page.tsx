@@ -46,6 +46,10 @@ function Earners({ title, rows, note }: { title: string; rows: Earner[]; note: s
 
 export default function RewardsPage() {
   const s = rewardsSummary(7);
+  // until a full week is recorded, every "7 days" label would overstate the window
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+  const span = s?.earliest && s.earliest > weekAgo
+    ? `since ${new Date(s.earliest + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}` : "7 days";
   return (
     <>
       <section>
@@ -61,7 +65,7 @@ export default function RewardsPage() {
         <>
           <section className="panel">
             <div className="facts">
-              <div><b>{usd(s.total)}</b>paid, last {s.days} days</div>
+              <div><b>{usd(s.total)}</b>paid, {span === "7 days" ? "last 7 days" : span}</div>
               {ROLES.map((r) => <div key={r}><b>{s.total > 0 ? pct(s.byRole[r] / s.total, 1) : "0%"}</b><i className="dot" style={{ background: COLOR[r] }} />{TO[r]}</div>)}
               <div><b>{int(s.payouts)}</b>payouts</div>
             </div>
@@ -76,11 +80,11 @@ export default function RewardsPage() {
             <StackedBars daily={s.daily} parts={ROLES.map((r) => ({ key: r, label: ROLE_LABEL[r], color: COLOR[r] }))} />
           </section>
           <section className="split">
-            <Earners title="Top creators, 7 days" rows={s.top.creator} note="The wallet a coin pays its creator share to." />
-            <Earners title="Top platform referrers, 7 days" rows={s.top.platform} note="Apps credited with creating the coins that traded." />
+            <Earners title={`Top creators, ${span}`} rows={s.top.creator} note="The wallet a coin pays its creator share to." />
+            <Earners title={`Top platform referrers, ${span}`} rows={s.top.platform} note="Apps credited with creating the coins that traded." />
           </section>
           <section className="split">
-            <Earners title="Top trade referrers, 7 days" rows={s.top.trade} note="Apps that routed trades. Most trades name none." />
+            <Earners title={`Top trade referrers, ${span}`} rows={s.top.trade} note="Apps that routed trades. Most trades name none." />
             <div className="panel">
               <h2>How this is counted</h2>
               <p className="note">

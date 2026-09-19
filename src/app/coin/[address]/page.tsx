@@ -72,7 +72,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
           <div><b>{usd(c.marketCap)}</b>market cap</div>
           <div><b>{usd(p.totalUsd)}</b>volume, 7 days</div>
           <div><b>{int(p.traders)}</b>traders, 7 days</div>
-          {earned && <div><b>{usd(earned.usd)}</b><Link href="/rewards">paid to the creator</Link>, 7 days</div>}
+          {earned && <div><b>{usd(earned.usd)}</b><Link href="/rewards">paid to the creator</Link>, {earned.since ? `since ${new Date(earned.since + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}` : "7 days"}</div>}
           {lead && <div><b style={{ color: "var(--gap)" }}>{lead.score}</b>gap score</div>}
         </div>
       </section>
