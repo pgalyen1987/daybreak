@@ -3,7 +3,8 @@
 //   tsx scripts/collect.ts swaps       new trades since the last stored one, per coin
 //   tsx scripts/collect.ts holders     today's holder set per coin (all holders if small, else the top N)
 // Environment: DATA_DIR (sqlite location), ZORA_API_KEY (optional, raises rate limits),
-//   PAGES_PER_LIST (default 10 -> up to 200 coins per list), CONCURRENCY (default 3).
+//   PAGES_PER_LIST (default 10 -> up to 200 coins per list), CONCURRENCY (default 3),
+//   HOLDER_MAX_COINS (holder sets fetched per run; default all).
 import { open } from "../src/lib/db";
 import { holders, pool, profileSocials, recentSwaps, universe } from "../src/lib/zora";
 
@@ -13,6 +14,9 @@ const SWAP_LOOKBACK_MS = 7 * 24 * 3600 * 1000; // first fetch for a coin goes ba
 const SWAP_MAX_PAGES = Number(process.env.SWAP_MAX_PAGES || 25); // 500 trades per coin per run
 const HOLDER_FULL_LIMIT = 500; // coins with at most this many holders get a complete snapshot
 const HOLDER_TOP_PAGES = 25; // otherwise the top 500 by balance
+// Coins per run whose holders are fetched. The hourly workflow caps it so one run can't outlast
+// its time limit; coins done today are skipped, so the day's first runs share the work.
+const HOLDER_MAX_COINS = Number(process.env.HOLDER_MAX_COINS || Infinity);
 
 const db = open();
 const now = Date.now();
@@ -88,7 +92,8 @@ async function holderSets() {
   const coins = (db.prepare(`SELECT c.address, s.holders FROM coins c
       JOIN coin_snapshots s ON s.address = c.address AND s.ts = (SELECT MAX(ts) FROM coin_snapshots WHERE address = c.address)
       WHERE c.last_seen > ?`).all(now - 3 * 24 * 3600 * 1000) as { address: string; holders: number }[])
-    .filter((c) => !done.has(c.address));
+    .filter((c) => !done.has(c.address))
+    .slice(0, HOLDER_MAX_COINS);
   const ins = db.prepare("INSERT OR REPLACE INTO holder_snapshots (address, day, wallet, balance) VALUES (?, ?, ?, ?)");
   const meta = db.prepare("INSERT OR REPLACE INTO holder_meta (address, day, total, captured) VALUES (?, ?, ?, ?)");
   let errors = 0, n = 0;

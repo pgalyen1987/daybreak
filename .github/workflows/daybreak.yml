@@ -2,8 +2,8 @@
 # the static site and publish it to GitHub Pages. Free for a public repository.
 #
 # The SQLite file lives as an asset on the "data" release (not in git history, which would
-# grow by megabytes an hour). Holder sets are fetched once a day: `collect holders` skips coins
-# already done today, so only the first run after midnight UTC does that work.
+# grow by megabytes an hour). Holder sets are fetched once a day per coin: `collect holders` skips
+# coins already done today and takes at most 60 per run, so the day's first runs share the work.
 name: Daybreak
 
 on:
@@ -50,6 +50,7 @@ jobs:
         if: github.event_name != 'push'
         env:
           ZORA_API_KEY: ${{ secrets.ZORA_API_KEY }}
+          HOLDER_MAX_COINS: "60"
         run: |
           npx tsx scripts/collect.ts snapshots
           npx tsx scripts/collect.ts swaps
