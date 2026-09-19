@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(APP),
   title: { default: "Daybreak: analytics for Zora creator coins", template: "%s | Daybreak" },
   description: "Which creators' audiences haven't found their Zora coin yet, plus holder churn and trading patterns for every creator coin we track. Free, from Zora's own data.",
+  // the gap map itself, drawn from the data by scripts/og-card.ts
+  openGraph: { images: [{ url: "/og.png", width: 1200, height: 630, alt: "Daybreak's gap map of Zora creator coins" }], siteName: "Daybreak" },
+  twitter: { card: "summary_large_image", images: ["/og.png"] },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
