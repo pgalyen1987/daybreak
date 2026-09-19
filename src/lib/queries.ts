@@ -7,19 +7,19 @@ export const MIN_HOLDERS = 10; // coins below this are too thin to call a lead
 
 export type CoinRow = {
   address: string; symbol: string; name: string; handle: string | null; holders: number;
-  marketCap: number; volume24h: number; mcapDelta24h: number; priceUsd: number | null; ts: number;
+  marketCap: number; volume24h: number; mcapDelta24h: number; priceUsd: number | null; ts: number; image: string | null;
   socials: Socials; socialUsers: Record<string, string | null>;
 };
 
 type Raw = {
-  address: string; symbol: string; name: string; handle: string | null; holders: number; market_cap: number;
+  address: string; symbol: string; name: string; image: string | null; handle: string | null; holders: number; market_cap: number;
   volume_24h: number; mcap_delta_24h: number; price_usd: number | null; ts: number;
   twitter: number | null; farcaster: number | null; instagram: number | null; tiktok: number | null;
   twitter_user: string | null; farcaster_user: string | null; instagram_user: string | null; tiktok_user: string | null;
 };
 
 const LATEST = `
-  SELECT c.address, c.symbol, c.name, c.creator_handle AS handle, s.holders, s.market_cap, s.volume_24h, s.mcap_delta_24h, s.price_usd, s.ts,
+  SELECT c.address, c.symbol, c.name, c.image, c.creator_handle AS handle, s.holders, s.market_cap, s.volume_24h, s.mcap_delta_24h, s.price_usd, s.ts,
          so.twitter, so.farcaster, so.instagram, so.tiktok, so.twitter_user, so.farcaster_user, so.instagram_user, so.tiktok_user
   FROM coins c
   JOIN coin_snapshots s ON s.address = c.address AND s.ts = (SELECT MAX(ts) FROM coin_snapshots WHERE address = c.address)
@@ -27,7 +27,7 @@ const LATEST = `
 
 function toRow(r: Raw): CoinRow {
   return {
-    address: r.address, symbol: r.symbol, name: r.name, handle: r.handle, holders: r.holders,
+    address: r.address, symbol: r.symbol, name: r.name, image: r.image, handle: r.handle, holders: r.holders,
     marketCap: r.market_cap, volume24h: r.volume_24h, mcapDelta24h: r.mcap_delta_24h, priceUsd: r.price_usd, ts: r.ts,
     socials: { twitter: r.twitter, farcaster: r.farcaster, instagram: r.instagram, tiktok: r.tiktok },
     socialUsers: { twitter: r.twitter_user, farcaster: r.farcaster_user, instagram: r.instagram_user, tiktok: r.tiktok_user },

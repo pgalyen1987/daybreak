@@ -55,8 +55,9 @@ jobs:
           npx tsx scripts/collect.ts snapshots
           npx tsx scripts/collect.ts swaps
           npx tsx scripts/collect.ts holders
-          npx tsx scripts/collect.ts rewards
-          npx tsx scripts/collect.ts trends
+          # the newer pages' steps can't hold the hourly data hostage: a failure warns, the rest ships
+          npx tsx scripts/collect.ts rewards || echo "::warning::rewards collection failed this run"
+          npx tsx scripts/collect.ts trends || echo "::warning::trends collection failed this run"
 
       - name: Prune
         run: npx tsx scripts/prune.ts

@@ -37,9 +37,10 @@ async function snapshots() {
   const run = startRun("snapshots");
   const coins = await universe(PAGES_PER_LIST);
   log(`universe: ${coins.length} creator coins`);
-  const upCoin = db.prepare(`INSERT INTO coins (address, symbol, name, coin_type, creator_address, creator_handle, created_at, first_seen, last_seen, total_supply)
-    VALUES (@address, @symbol, @name, @coinType, @creatorAddress, @creatorHandle, @createdAt, @now, @now, @totalSupply)
-    ON CONFLICT(address) DO UPDATE SET symbol=excluded.symbol, name=excluded.name, creator_handle=excluded.creator_handle, last_seen=excluded.last_seen, total_supply=excluded.total_supply`);
+  const upCoin = db.prepare(`INSERT INTO coins (address, symbol, name, coin_type, creator_address, creator_handle, created_at, first_seen, last_seen, total_supply, image)
+    VALUES (@address, @symbol, @name, @coinType, @creatorAddress, @creatorHandle, @createdAt, @now, @now, @totalSupply, @image)
+    ON CONFLICT(address) DO UPDATE SET symbol=excluded.symbol, name=excluded.name, creator_handle=excluded.creator_handle, last_seen=excluded.last_seen, total_supply=excluded.total_supply,
+      image=COALESCE(excluded.image, coins.image)`);
   const snap = db.prepare(`INSERT OR REPLACE INTO coin_snapshots (address, ts, holders, market_cap, volume_24h, total_volume, price_usd, mcap_delta_24h)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
   db.transaction(() => {
@@ -241,9 +242,9 @@ const TREND_HOLDER_COINS = 15;                               // busiest tags get
 async function trends() {
   const run = startRun("trends");
   const list = await trendUniverse(TREND_PAGES);
-  const up = db.prepare(`INSERT INTO trends (address, symbol, name, created_at, creator_address, first_seen, last_seen)
-      VALUES (@address, @symbol, @name, @createdAt, @creatorAddress, @now, @now)
-      ON CONFLICT(address) DO UPDATE SET symbol=excluded.symbol, name=excluded.name, last_seen=excluded.last_seen`);
+  const up = db.prepare(`INSERT INTO trends (address, symbol, name, created_at, creator_address, first_seen, last_seen, image)
+      VALUES (@address, @symbol, @name, @createdAt, @creatorAddress, @now, @now, @image)
+      ON CONFLICT(address) DO UPDATE SET symbol=excluded.symbol, name=excluded.name, last_seen=excluded.last_seen, image=COALESCE(excluded.image, trends.image)`);
   const snap = db.prepare("INSERT OR REPLACE INTO trend_snapshots (address, ts, holders, market_cap, volume_24h, total_volume) VALUES (?, ?, ?, ?, ?, ?)");
   db.transaction(() => { for (const t of list) { up.run({ ...t, now }); snap.run(t.address, now, t.uniqueHolders, t.marketCap, t.volume24h, t.totalVolume); } })();
   // holder sets once a day for the busiest tags (they're small, so each is complete)

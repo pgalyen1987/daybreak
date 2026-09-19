@@ -6,6 +6,7 @@ import { miniappMeta } from "@/lib/embed";
 import { compact, int, pct, PLATFORM, usd, zoraUrl } from "@/lib/format";
 import { allCoins, coinByAddress, coinTrades, holderChurn, holderSeries, leads, reach, topHolderShare } from "@/lib/queries";
 import { coinCreatorEarnings } from "@/lib/zora-queries";
+import { CoinAvatar } from "@/components/CoinAvatar";
 
 // One page per tracked coin, written at build time.
 export const dynamicParams = false;
@@ -40,6 +41,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
   const conc = topHolderShare(c.address);
   const series = holderSeries(c.address);
   const earned = coinCreatorEarnings(c.address, 7);
+  const quiet = p.totalUsd < 1; // a chart of cents is noise: say so instead
   const socials = Object.entries(c.socials).filter(([, v]) => v != null && v > 0) as [string, number][];
   // A creator sharing their own coin's page is the cheapest reach Daybreak gets; the text is the
   // page's own numbers, nothing added.
@@ -48,7 +50,9 @@ export default function CoinPage({ params }: { params: { address: string } }) {
   return (
     <>
       <section style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", alignItems: "end", justifyContent: "space-between" }}>
-        <div>
+        <div className="coinhead">
+          <CoinAvatar src={c.image} label={c.symbol} address={c.address} size={72} />
+          <div>
           <p className="kicker">Creator coin</p>
           <h1>${c.symbol}</h1>
           <p className="lede">@{c.handle ?? "unknown"}{c.name && c.name !== c.symbol ? ` · ${c.name}` : ""}</p>
@@ -57,6 +61,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
             <a href={`https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}`} target="_blank" rel="noopener noreferrer">X</a>{" · "}
             <a href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${shareText} ${pageUrl}`)}`} target="_blank" rel="noopener noreferrer">Bluesky</a>
           </p>
+          </div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <a className="btn" href={zoraUrl(c.address)} target="_blank" rel="noopener noreferrer">Buy on Zora</a>
@@ -107,8 +112,14 @@ export default function CoinPage({ params }: { params: { address: string } }) {
 
       <section className="panel">
         <h2>Buys and sells, last 7 days</h2>
-        <div className="legend" aria-hidden="true"><span><i style={{ background: "var(--buy)" }} />Buys</span><span><i style={{ background: "var(--sell)" }} />Sells</span></div>
-        <FlowBars daily={t.daily} />
+        {quiet ? (
+          <p className="note">Barely traded this week: {usd(p.totalUsd)} across {int(p.buys + p.sells)} trade{p.buys + p.sells === 1 ? "" : "s"}. The daily chart appears once it trades.</p>
+        ) : (
+          <>
+            <div className="legend" aria-hidden="true"><span><i style={{ background: "var(--buy)" }} />Buys</span><span><i style={{ background: "var(--sell)" }} />Sells</span></div>
+            <FlowBars daily={t.daily} />
+          </>
+        )}
         <div className="facts">
           <div><b>{pct(p.buyShare)}</b>of volume was buying</div>
           <div><b>{usd(p.netFlowUsd)}</b>net flow</div>
@@ -123,8 +134,12 @@ export default function CoinPage({ params }: { params: { address: string } }) {
       <section className="split">
         <div className="panel">
           <h2>When it trades</h2>
-          <Heatmap grid={p.grid} />
-          <p className="note">Dollar volume by weekday and hour, UTC, last 7 days.</p>
+          {quiet ? <p className="note">Too few trades this week to show a pattern.</p> : (
+            <>
+              <Heatmap grid={p.grid} />
+              <p className="note">Dollar volume by weekday and hour, UTC, last 7 days.</p>
+            </>
+          )}
         </div>
         <div className="panel">
           <h2>Holders over time</h2>

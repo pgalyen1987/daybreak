@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Gap leaderboard", description: "Zora
 // by the URL. The default view is in the HTML, so the table reads without JavaScript.
 export default function Leaderboard() {
   const boards: Boards = Object.fromEntries(MINS.map((m) => [String(m), leads(m).map((r) => ({
-    address: r.address, handle: r.handle, symbol: r.symbol, score: r.score, reach: r.reach, platform: r.platform,
+    address: r.address, handle: r.handle, symbol: r.symbol, image: r.image, score: r.score, reach: r.reach, platform: r.platform,
     holders: r.holders, conversion: r.conversion, untapped: r.untapped, marketCap: r.marketCap,
   }))]));
   return (

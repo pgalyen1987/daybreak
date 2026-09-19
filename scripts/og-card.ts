@@ -1,5 +1,5 @@
 // The site's share image (public/og.png): the gap map itself, drawn from the database, in the
-// dark "night map" palette. Writes an HTML page; distribution-kit/bin/render-html.py turns it
+// site's dark theme. Writes an HTML page; distribution-kit/bin/render-html.py turns it
 // into the 1200x630 PNG. Run: npx tsx scripts/og-card.ts > /tmp/og.html
 // EMBED=1 draws the 3:2 card Farcaster shows for the mini app embed (public/embed.png, 1200x800).
 import { leads, stats } from "../src/lib/queries";
@@ -15,29 +15,28 @@ const Y = (v: number) => 10 + ((H - B - 10) * (y1 - Math.log10(Math.max(v, 10)))
 const top = new Set(rows.slice(0, 10).map((r) => r.address));
 const dots = [...rows].sort((a, b) => Number(top.has(a.address)) - Number(top.has(b.address))).map((r) => {
   const hot = top.has(r.address);
-  return `<circle cx="${X(r.reach).toFixed(1)}" cy="${Y(r.holders).toFixed(1)}" r="${hot ? 7 : 5}" fill="${hot ? "#c08628" : "#5b7fc4"}" fill-opacity="${hot ? 1 : 0.75}" stroke="#141b2d" stroke-width="2"/>`;
+  return `<circle cx="${X(r.reach).toFixed(1)}" cy="${Y(r.holders).toFixed(1)}" r="${hot ? 7.5 : 5}" fill="${hot ? "#6f86ff" : "#5a5a66"}" fill-opacity="${hot ? 1 : 0.8}" stroke="#131316" stroke-width="2"/>`;
 }).join("");
 const diag = [0.01, 0.001, 0.0001].map((rate) => {
   const a = 10 ** x0, b = 10 ** x1;
-  return `<line x1="${X(a)}" y1="${Y(a * rate)}" x2="${X(b)}" y2="${Y(b * rate)}" stroke="#8d97ac" stroke-opacity=".35" stroke-dasharray="4 6"/>`;
+  return `<line x1="${X(a)}" y1="${Y(a * rate)}" x2="${X(b)}" y2="${Y(b * rate)}" stroke="#a1a1aa" stroke-opacity=".3" stroke-dasharray="4 6"/>`;
 }).join("");
 
 console.log(`<!doctype html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;width:1200px;height:${PAGE_H}px;background:#0e1422;color:#e7ebf3;font-family:"IBM Plex Sans",sans-serif}
+  html,body{margin:0;width:1200px;height:${PAGE_H}px;background:#0b0b0c;color:#f4f4f5;font-family:Geist,sans-serif}
   .wrap{display:grid;grid-template-columns:540px 1fr;height:100%;padding:56px 56px ${EMBED ? 88 : 48}px;box-sizing:border-box;gap:28px;align-items:${EMBED ? "center" : "stretch"}}
-  .brand{font:800 30px/1 Archivo,sans-serif;font-stretch:115%;letter-spacing:.02em;text-transform:uppercase}
-  .brand span{color:#c08628}
-  h1{font:800 50px/1.05 Archivo,sans-serif;font-stretch:112%;margin:40px 0 18px;letter-spacing:-.01em}
-  p{font-size:23px;line-height:1.45;color:#aab3c5;margin:0}
-  .facts{display:flex;gap:34px;margin-top:40px;font:500 16px/1.3 "IBM Plex Mono",monospace;color:#8d97ac}
-  .facts b{display:block;font-size:30px;color:#e7ebf3;font-weight:500}
-  .map{background:#141b2d;border:1px solid #25304a;border-radius:12px;display:grid;place-items:center;${EMBED ? "height:620px" : ""}}
-  .foot{position:absolute;left:56px;bottom:40px;font:500 16px "IBM Plex Mono",monospace;color:#8d97ac}
+  .brand{display:flex;align-items:center;gap:12px;font:600 30px/1 Geist,sans-serif;letter-spacing:-.03em}
+  h1{font:600 52px/1.04 Geist,sans-serif;margin:40px 0 18px;letter-spacing:-.045em}
+  p{font-size:23px;line-height:1.45;color:#a1a1aa;margin:0}
+  .facts{display:flex;gap:40px;margin-top:40px;font:400 17px/1.3 Geist,sans-serif;color:#a1a1aa}
+  .facts b{display:block;font-size:34px;color:#f4f4f5;font-weight:600;letter-spacing:-.03em}
+  .map{background:#131316;border:1px solid #26262c;border-radius:24px;display:grid;place-items:center;${EMBED ? "height:620px" : ""}}
+  .foot{position:absolute;left:56px;bottom:40px;font:500 17px Geist,sans-serif;color:#a1a1aa}
 </style></head><body><div class="wrap">
   <div>
-    <div class="brand">Day<span>break</span></div>
+    <div class="brand"><svg width="36" height="36" viewBox="0 0 24 24"><defs><radialGradient id="o" cx="38%" cy="42%" r="78%"><stop offset="0" stop-color="#fff1d6"/><stop offset=".38" stop-color="#ff9d6e"/><stop offset=".68" stop-color="#f25ca8"/><stop offset="1" stop-color="#3b5bff"/></radialGradient><clipPath id="s"><rect width="24" height="17.2"/></clipPath></defs><circle cx="12" cy="15.5" r="9.5" fill="url(#o)" clip-path="url(#s)"/><rect x="1.5" y="18.6" width="21" height="2.2" rx="1.1" fill="#f4f4f5"/></svg>Daybreak</div>
     <h1>Whose audience hasn't found their coin yet</h1>
     <p>Free analytics for Zora creator coins: the follower-to-holder gap, holder churn and trading patterns.</p>
     <div class="facts"><div><b>${s.coins.toLocaleString("en-US")}</b>coins tracked</div><div><b>hourly</b>from Zora's data</div></div>

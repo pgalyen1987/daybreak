@@ -3,6 +3,7 @@ import Link from "next/link";
 import { miniappMeta } from "@/lib/embed";
 import { int, usd } from "@/lib/format";
 import { tagOverlap, tags, type Tag } from "@/lib/zora-queries";
+import { CoinAvatar } from "@/components/CoinAvatar";
 
 export const metadata: Metadata = {
   title: "Tags",
@@ -15,19 +16,21 @@ const zoraTag = (t: Tag) => `https://zora.co/coin/base:${t.address}`;
 const growth = (t: Tag) => (t.holders24hAgo == null ? null : t.holders - t.holders24hAgo);
 
 function TagTable({ rows, show }: { rows: Tag[]; show: "volume" | "growth" | "age" }) {
+  // the 24-hour change needs a day of snapshots; until then the column would be all dashes
+  const third = show === "age" || rows.some((t) => growth(t) != null);
   return (
     <div className="tablewrap" style={{ border: 0 }}>
       <table className="sheet" style={{ minWidth: 0 }}>
-        <thead><tr><th className="l">Tag</th><th>24h volume</th><th>Holders</th><th>{show === "age" ? "Created" : "Holders, 24h"}</th><th>Market cap</th></tr></thead>
+        <thead><tr><th className="l">Tag</th><th>24h volume</th><th>Holders</th>{third && <th>{show === "age" ? "Created" : "Holders, 24h"}</th>}<th>Market cap</th></tr></thead>
         <tbody>
           {rows.map((t) => {
             const g = growth(t);
             return (
               <tr key={t.address}>
-                <td className="l"><a className="who" href={zoraTag(t)} target="_blank" rel="noopener noreferrer"><b>#{t.symbol}</b></a></td>
+                <td className="l"><a className="who" href={zoraTag(t)} target="_blank" rel="noopener noreferrer"><CoinAvatar src={t.image} label={t.symbol} address={t.address} size={28} /><b>#{t.symbol}</b></a></td>
                 <td>{usd(t.volume24h)}</td>
                 <td>{int(t.holders)}</td>
-                <td>{show === "age" ? (t.createdAt ?? "").slice(0, 10) : g == null ? "–" : `${g > 0 ? "+" : ""}${int(g)}`}</td>
+                {third && <td>{show === "age" ? (t.createdAt ?? "").slice(0, 10) : g == null ? "–" : `${g > 0 ? "+" : ""}${int(g)}`}</td>}
                 <td>{usd(t.marketCap)}</td>
               </tr>
             );

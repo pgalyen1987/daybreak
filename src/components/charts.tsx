@@ -1,8 +1,9 @@
 // Server-rendered SVG charts. Colors come from CSS tokens so both themes work; hover text rides on
 // data-tip and is shown by <Tooltips/>.
 import { compact, int, usd } from "@/lib/format";
+import { thumb } from "@/lib/images";
 
-type Pt = { key: string; label: string; reach: number; holders: number; score: number; hot: boolean };
+type Pt = { key: string; label: string; reach: number; holders: number; score: number; hot: boolean; image?: string | null };
 
 /** Every creator as a dot: followers across, holders up, both log scales, with conversion diagonals. */
 export function GapMap({ points, labelKeys }: { points: Pt[]; labelKeys: string[] }) {
@@ -40,16 +41,40 @@ export function GapMap({ points, labelKeys }: { points: Pt[]; labelKeys: string[
           </g>
         );
       })}
-      {ordered.map((p) => (
-        <circle key={p.key} className={p.hot ? "hot" : "rest"} cx={X(p.reach)} cy={Y(Math.max(p.holders, 10 ** y0))} r={p.hot ? 6 : 4.5}
-          fill={p.hot ? "var(--gap)" : "var(--rest)"} fillOpacity={p.hot ? 1 : 0.8} stroke="var(--card)" strokeWidth={2}
-          tabIndex={0} data-tip={`${p.label}  ${compact(p.reach)} followers · ${int(p.holders)} holders · score ${p.score}`} />
-      ))}
+      {ordered.map((p, i) => {
+        const cx = X(p.reach), cy = Y(Math.max(p.holders, 10 ** y0)), tip = `${p.label}  ${compact(p.reach)} followers · ${int(p.holders)} holders · score ${p.score}`;
+        const img = p.hot ? thumb(p.image, 24) : null;
+        // the largest gaps show the creator's face, ringed in the accent; phones fall back to the dot
+        if (img) return (
+          <g key={p.key} className="apt" tabIndex={0} data-tip={tip}>
+            <clipPath id={`gm-a${i}`}><circle cx={cx} cy={cy} r={11} /></clipPath>
+            <circle className="hot" cx={cx} cy={cy} r={13} fill="var(--gap)" stroke="var(--card)" strokeWidth={2} />
+            <image href={img} x={cx - 11} y={cy - 11} width={22} height={22} clipPath={`url(#gm-a${i})`} preserveAspectRatio="xMidYMid slice" />
+          </g>
+        );
+        return (
+          <circle key={p.key} className={p.hot ? "hot" : "rest"} cx={cx} cy={cy} r={p.hot ? 6 : 4.5}
+            fill={p.hot ? "var(--gap)" : "var(--rest)"} fillOpacity={p.hot ? 1 : 0.8} stroke="var(--card)" strokeWidth={2}
+            tabIndex={0} data-tip={tip} />
+        );
+      })}
       {labelKeys.map((k) => {
         const p = byKey.get(k);
         if (!p) return null;
-        const nearRight = X(p.reach) > W - R - 130; // keep clear of the diagonal labels on the right edge
-        return <text key={k} className="strong plabel" x={X(p.reach) + (nearRight ? -10 : 10)} y={Y(p.holders) + 4} textAnchor={nearRight ? "end" : "start"}>{p.label}</text>;
+        // first spot (right, left, above, below) that covers no other highlighted face and stays
+        // clear of the diagonal labels on the right edge; no spot, no label (the tooltip still has it)
+        const cx = X(p.reach), cy = Y(Math.max(p.holders, 10 ** y0)), w = p.label.length * 6.8, h = 14;
+        const faces = points.filter((q) => q.hot && q.key !== k).map((q) => [X(q.reach), Y(Math.max(q.holders, 10 ** y0))]);
+        const spots = [
+          { x: cx + 17, y: cy + 4, a: "start" as const, box: [cx + 17, cy - 8, cx + 17 + w, cy + 6] },
+          { x: cx - 17, y: cy + 4, a: "end" as const, box: [cx - 17 - w, cy - 8, cx - 17, cy + 6] },
+          { x: cx, y: cy - 19, a: "middle" as const, box: [cx - w / 2, cy - 19 - h + 3, cx + w / 2, cy - 17] },
+          { x: cx, y: cy + 29, a: "middle" as const, box: [cx - w / 2, cy + 18, cx + w / 2, cy + 31] },
+        ];
+        const free = spots.find(({ box: [x0b, y0b, x1b, y1b] }) => x1b < W - R - 4 && x0b > L + 4 && y0b > T &&
+          !faces.some(([fx, fy]) => fx + 14 > x0b && fx - 14 < x1b && fy + 14 > y0b && fy - 14 < y1b));
+        if (!free) return null;
+        return <text key={k} className="strong plabel" x={free.x} y={free.y} textAnchor={free.a}>{p.label}</text>;
       })}
     </svg>
   );
@@ -72,7 +97,7 @@ export function FlowBars({ daily }: { daily: { day: string; buy: number; sell: n
         </g>
       ))}
       {daily.map((d, i) => {
-        const x = L + i * bw + bw * 0.22, w = bw * 0.56;
+        const w = Math.min(bw * 0.56, 56), x = L + i * bw + (bw - w) / 2; // few days of data: bars stay bar-shaped
         const date = new Date(d.day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
         return (
           <g key={d.day} tabIndex={0} data-tip={`${date}  buys ${usd(d.buy)} · sells ${usd(d.sell)} · ${d.trades} trades`}>
@@ -157,7 +182,7 @@ export function StackedBars({ daily, parts }: { daily: { day: string; values: Re
         </g>
       ))}
       {daily.map((d, i) => {
-        const x = L + i * bw + bw * 0.22, w = bw * 0.56;
+        const w = Math.min(bw * 0.56, 56), x = L + i * bw + (bw - w) / 2; // few days of data: bars stay bar-shaped
         const date = new Date(d.day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
         let acc = 0;
         return (

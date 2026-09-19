@@ -4,6 +4,7 @@ import { compact, int, PLATFORM } from "@/lib/format";
 import { Ago } from "@/components/Ago";
 import { leads, stats, MIN_HOLDERS } from "@/lib/queries";
 import type { Metadata } from "next";
+import { CoinAvatar } from "@/components/CoinAvatar";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -21,7 +22,7 @@ export default function Home() {
   const s = stats();
   const top = rows.slice(0, 10);
   const hot = new Set(top.map((r) => r.address));
-  const points = rows.map((r) => ({ key: r.address, label: "@" + (r.handle ?? r.symbol), reach: r.reach, holders: r.holders, score: r.score, hot: hot.has(r.address) }));
+  const points = rows.map((r) => ({ key: r.address, label: "@" + (r.handle ?? r.symbol), reach: r.reach, holders: r.holders, score: r.score, hot: hot.has(r.address), image: r.image }));
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE) }} />
@@ -53,7 +54,7 @@ export default function Home() {
                 {top.map((r, i) => (
                   <tr key={r.address}>
                     <td className="rank l">{i + 1}</td>
-                    <td className="l"><Link href={`/coin/${r.address}`} className="who"><b>@{r.handle ?? r.symbol}</b></Link></td>
+                    <td className="l"><Link href={`/coin/${r.address}`} className="who"><CoinAvatar src={r.image} label={r.handle ?? r.symbol} address={r.address} size={28} /><b>@{r.handle ?? r.symbol}</b></Link></td>
                     <td>{compact(r.reach)}<span className="plat">{PLATFORM[r.platform ?? ""] ?? ""}</span></td>
                     <td>{int(r.holders)}</td>
                     <td className="score">{r.score}</td>

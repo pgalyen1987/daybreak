@@ -5,6 +5,7 @@ import { miniappMeta } from "@/lib/embed";
 import { int, pct, usd } from "@/lib/format";
 import { ROLE_LABEL, ROLES, type Role } from "@/lib/rewards";
 import { rewardsSummary, type Earner } from "@/lib/zora-queries";
+import { CoinAvatar } from "@/components/CoinAvatar";
 
 export const metadata: Metadata = {
   title: "Trading rewards",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   other: miniappMeta("/embed.png", "/rewards/", "Zora trading rewards"),
 };
 
-const COLOR: Record<Role, string> = { creator: "var(--gap)", platform: "var(--rest)", trade: "var(--buy)", protocol: "var(--muted)", doppler: "var(--sell)" };
+const COLOR: Record<Role, string> = { creator: "var(--s-creator)", platform: "var(--s-platform)", trade: "var(--s-trade)", protocol: "var(--s-protocol)", doppler: "var(--s-doppler)" };
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const TO: Record<Role, string> = { creator: "to creators", platform: "to platform referrers", trade: "to trade referrers", protocol: "to the protocol (Zora)", doppler: "to Doppler" };
 
@@ -29,7 +30,7 @@ function Earners({ title, rows, note }: { title: string; rows: Earner[]; note: s
               {rows.map((r, i) => (
                 <tr key={r.address}>
                   <td className="rank l">{i + 1}</td>
-                  <td className="l"><a className="who" href={r.name ? `https://zora.co/@${r.name}` : `https://basescan.org/address/${r.address}`} target="_blank" rel="noopener noreferrer">{r.name ? <b>@{r.name}</b> : <code>{short(r.address)}</code>}</a>{r.zora && <span className="plat">Zora</span>}</td>
+                  <td className="l"><a className="who" href={r.name ? `https://zora.co/@${r.name}` : `https://basescan.org/address/${r.address}`} target="_blank" rel="noopener noreferrer"><CoinAvatar src={r.image} label={r.name ?? r.address.slice(2)} address={r.address} size={28} />{r.name ? <b>@{r.name}</b> : <code>{short(r.address)}</code>}</a>{r.zora && <span className="plat">Zora</span>}</td>
                   <td>{usd(r.usd)}</td>
                   <td>{int(r.events)}</td>
                 </tr>

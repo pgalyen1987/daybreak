@@ -56,6 +56,7 @@ export function migrate(d: Database.Database) {
   `);
   const cols = (d.prepare("PRAGMA table_info(coins)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("total_supply")) d.exec("ALTER TABLE coins ADD COLUMN total_supply REAL");
+  if (!cols.includes("image")) d.exec("ALTER TABLE coins ADD COLUMN image TEXT");
   d.exec("CREATE TABLE IF NOT EXISTS swap_coverage (address TEXT PRIMARY KEY, since INTEGER NOT NULL)");
   // Trading rewards (lib/rewards.ts): raw payouts for a day, daily totals per
   // wallet and per coin for 35, per role for good
@@ -96,4 +97,6 @@ export function migrate(d: Database.Database) {
       PRIMARY KEY (address, ts)
     );
   `);
+  const tcols = (d.prepare("PRAGMA table_info(trends)").all() as { name: string }[]).map((c) => c.name);
+  if (!tcols.includes("image")) d.exec("ALTER TABLE trends ADD COLUMN image TEXT");
 }

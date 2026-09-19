@@ -1,16 +1,16 @@
-import type { Metadata } from "next";
-import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import Link from "next/link";
 import { Tooltips } from "@/components/Tooltips";
+import { Logo } from "@/components/Logo";
 import { Nav } from "@/components/Nav";
 import { MiniApp } from "@/components/MiniApp";
 import { Analytics } from "@/components/Analytics";
 import { miniappMeta } from "@/lib/embed";
 import "./globals.css";
 
-const display = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-display", display: "swap" });
-const text = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-text", display: "swap" });
-const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-mono", display: "swap" });
+// Geist: the closest open grotesk to Zora's own type, so Daybreak reads as part of the same world.
 
 const APP = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -26,15 +26,20 @@ export const metadata: Metadata = {
   other: miniappMeta("/embed.png", "/"),
 };
 
+// browser chrome matches the page in either theme
+export const viewport: Viewport = {
+  themeColor: [{ media: "(prefers-color-scheme: light)", color: "#ffffff" }, { media: "(prefers-color-scheme: dark)", color: "#0b0b0c" }],
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${text.variable} ${mono.variable}`}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body>
         <MiniApp />
         <Analytics />
         <header className="top">
           <div className="wrap">
-            <Link href="/" className="brand"><b>Day<span>break</span></b><small>for Zora creator coins</small></Link>
+            <Link href="/" className="brand"><Logo /><b>Daybreak</b><small>for Zora creator coins</small></Link>
             <Nav />
           </div>
         </header>

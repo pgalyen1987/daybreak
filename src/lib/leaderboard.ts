@@ -4,7 +4,7 @@ export type SortKey = keyof typeof SORTS;
 export const MINS = [1, 10, 100] as const;
 
 export type Row = {
-  address: string; handle: string | null; symbol: string; score: number; reach: number; platform: string | null;
+  address: string; handle: string | null; symbol: string; image: string | null; score: number; reach: number; platform: string | null;
   holders: number; conversion: number; untapped: number; marketCap: number;
 };
 /** Rows per minimum-holder setting: the gap score is a rank within the set, so each set is scored on its own. */

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { compact, int, PLATFORM, usd } from "@/lib/format";
 import { MINS, SORTS, type Boards, type SortKey } from "@/lib/leaderboard";
+import { CoinAvatar } from "@/components/CoinAvatar";
 
 type View = { sort: SortKey; platform: string | null; min: number };
 
@@ -65,13 +66,13 @@ export function LeaderboardView({ boards, defaultMin, view }: { boards: Boards; 
             {rows.map((r, i) => (
               <tr key={r.address}>
                 <td className="rank l">{i + 1}</td>
-                <td className="l"><Link href={`/coin/${r.address}/`} className="who"><b>@{r.handle ?? r.symbol}</b><span>${r.symbol}</span></Link></td>
+                <td className="l"><Link href={`/coin/${r.address}/`} className="who"><CoinAvatar src={r.image} label={r.handle ?? r.symbol} address={r.address} /><b>@{r.handle ?? r.symbol}</b><span>${r.symbol}</span></Link></td>
                 <td className="score">{r.score}</td>
                 <td className="c-reach">{compact(r.reach)}<span className="plat">{PLATFORM[r.platform ?? ""] ?? ""}</span></td>
                 <td className="c-holders">{int(r.holders)}</td>
                 <td className="c-conversion">
                   <span className="meter">{(r.conversion * 1000).toFixed(2)}
-                    <svg viewBox="0 0 84 8" aria-hidden="true"><rect width="84" height="8" rx="2" fill="var(--faint)" /><rect width={Math.max(2, Math.min(84, (84 * r.conversion * 1000) / METER_MAX))} height="8" rx="2" fill="var(--buy)" /></svg>
+                    <svg viewBox="0 0 84 8" aria-hidden="true"><rect width="84" height="8" rx="4" fill="var(--faint)" /><rect width={Math.max(2, Math.min(84, (84 * r.conversion * 1000) / METER_MAX))} height="8" rx="4" fill="var(--accent)" /></svg>
                   </span>
                 </td>
                 <td className="c-untapped">{compact(r.untapped)}</td>

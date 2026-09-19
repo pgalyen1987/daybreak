@@ -7,11 +7,12 @@ import { useState } from "react";
 import { advise, per1000Text } from "@/lib/advice";
 import { compact, int, PLATFORM, zoraUrl } from "@/lib/format";
 import type { Socials } from "@/lib/metrics";
+import { CoinAvatar } from "@/components/CoinAvatar";
 
 const API = "https://api-sdk.zora.engineering";
 const KEYCAST = "https://keycast-production.up.railway.app";
 
-type Result = { handle: string; socials: Socials; holders: number | null; coin: string | null; symbol: string | null };
+type Result = { handle: string; socials: Socials; holders: number | null; coin: string | null; symbol: string | null; image: string | null };
 
 /** "@name", "name", a zora.co profile URL or a wallet address → what the profile endpoint takes. */
 export function identifierFrom(input: string): string {
@@ -31,14 +32,16 @@ async function lookup(identifier: string): Promise<Result | null> {
   const socials: Socials = { twitter: count("twitter"), farcaster: count("farcaster"), instagram: count("instagram"), tiktok: count("tiktok") };
   const coin: string | null = p.creatorCoin?.address?.toLowerCase() ?? null;
   let holders: number | null = null, symbol: string | null = null;
+  let image: string | null = p.avatar?.previewImage?.small ?? null;
   if (coin) {
     const c = await fetch(`${API}/coin?address=${coin}&chain=8453`);
     if (!c.ok) throw new Error(`Zora answered ${c.status}`);
     const t = (await c.json())?.zora20Token;
     holders = Number(t?.uniqueHolders ?? 0);
     symbol = t?.symbol ?? null;
+    image = t?.mediaContent?.previewImage?.small ?? image;
   }
-  return { handle: p.handle || identifier, socials, holders, coin, symbol };
+  return { handle: p.handle || identifier, socials, holders, coin, symbol, image };
 }
 
 export function CoinCheck({ medianPer1000, tracked }: { medianPer1000: number; tracked: string[] }) {
@@ -86,7 +89,7 @@ export function CoinCheck({ medianPer1000, tracked }: { medianPer1000: number; t
       {res && a && (
         <>
           <section className="panel" aria-live="polite">
-            <h2>@{res.handle}{res.symbol ? ` · $${res.symbol}` : ""}</h2>
+            <div className="who"><CoinAvatar src={res.image} label={res.handle} address={res.coin ?? "0x000000"} size={44} /><h2>@{res.handle}{res.symbol ? ` · $${res.symbol}` : ""}</h2></div>
             <div className="facts">
               <div><b>{res.holders == null ? "none" : int(res.holders)}</b>{res.holders == null ? "creator coin" : "holders"}</div>
               <div><b>{a.reach > 0 ? compact(a.reach) : "0"}</b>{a.platform ? `followers on ${PLATFORM[a.platform]}` : "linked followers"}</div>
