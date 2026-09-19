@@ -67,7 +67,7 @@ export default function TagsPage() {
           <section className="panel">
             <div className="facts">
               <div><b>{int(all.length)}</b>tags tracked</div>
-              <div><b>{usd(volume)}</b>traded, 24 hours</div>
+              <div><b>{usd(volume)}</b>traded in tag coins, 24 hours</div>
               <div><b>{int(thin)}</b>with fewer than 5 holders</div>
               <div><b>{int(fresh.length)}</b>new this week</div>
             </div>
