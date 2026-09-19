@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CoinCheck } from "@/components/CoinCheck";
-import { medianPer1000, per1000Text } from "@/lib/advice";
+import { medianPer1000, mediansByPlatform, per1000Text } from "@/lib/advice";
 import { miniappMeta } from "@/lib/embed";
 import { allCoins } from "@/lib/queries";
 
@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 export default function CheckPage() {
   const coins = allCoins();
   const median = medianPer1000(coins);
+  const byPlatform = mediansByPlatform(coins);
   return (
     <>
       <section>
@@ -26,7 +27,7 @@ export default function CheckPage() {
           (a median of {per1000Text(median)} holders per 1,000 followers), and the next step that fits your numbers.
         </p>
       </section>
-      <CoinCheck medianPer1000={median} tracked={coins.map((c) => c.address)} />
+      <CoinCheck medianPer1000={median} platformMedians={byPlatform} tracked={coins.map((c) => c.address)} />
       <p className="note">
         Where the audience is matters as much as its size: creators whose biggest audience is on Farcaster have a median of 27 holders
         per 1,000 followers, X-led creators 7. <a href="https://rebelstudiossoftware.com/blog-zora-audiences-that-buy.html">Which audiences actually buy Zora creator coins</a>

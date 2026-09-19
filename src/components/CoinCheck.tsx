@@ -54,7 +54,7 @@ function checkShareText(res: Result, a: NonNullable<ReturnType<typeof advise>>, 
   return `${head} from ${compact(a.reach)} ${PLATFORM[a.platform]} followers${rate}. How does your coin compare?`;
 }
 
-export function CoinCheck({ medianPer1000, tracked }: { medianPer1000: number; tracked: string[] }) {
+export function CoinCheck({ medianPer1000, platformMedians, tracked }: { medianPer1000: number; platformMedians?: Partial<Record<string, { median: number; n: number }>>; tracked: string[] }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +76,7 @@ export function CoinCheck({ medianPer1000, tracked }: { medianPer1000: number; t
     }
   }
 
-  const a = res ? advise({ socials: res.socials, holders: res.holders, medianPer1000 }) : null;
+  const a = res ? advise({ socials: res.socials, holders: res.holders, medianPer1000, platformMedians }) : null;
   const onDaybreak = res?.coin && tracked.includes(res.coin);
   const linked = res ? (Object.entries(res.socials).filter(([, v]) => v != null) as [string, number][]) : [];
   const coinLink = res?.coin ? zoraUrl(res.coin) : null;

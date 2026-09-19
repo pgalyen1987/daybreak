@@ -11,7 +11,13 @@ export type CheckInput = {
   socials: Socials;           // null or missing = not linked on Zora
   holders: number | null;     // null = the profile has no creator coin
   medianPer1000: number;      // holders per 1,000 followers, median across tracked coins
+  // the same median among creators whose biggest audience is on each platform: audiences convert very
+  // differently (Farcaster-led ~27 per 1,000 vs X-led ~7), so a creator is compared with their own kind
+  platformMedians?: Partial<Record<string, { median: number; n: number }>>;
 };
+
+/** Fewer creators than this on a platform and its median is noise: fall back to the overall one. */
+export const MIN_PEERS = 15;
 
 export const FIRST_HOLDERS = 10;
 const LINKABLE = ["twitter", "farcaster", "instagram", "tiktok"] as const;
@@ -20,7 +26,7 @@ const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1)
 /** Holders per 1,000 followers as the pages print it: 18, 2.1, 0.67. */
 export const per1000Text = (x: number) => (x >= 10 ? x.toFixed(0) : x >= 1 ? x.toFixed(1) : x.toFixed(2));
 
-export function advise({ socials, holders, medianPer1000 }: CheckInput) {
+export function advise({ socials, holders, medianPer1000, platformMedians }: CheckInput) {
   const aud = reach(socials);
   const per1000 = holders != null && aud.total > 0 ? (holders / aud.total) * 1000 : null;
   const unlinked = LINKABLE.filter((p) => socials[p] == null).map((p) => PLATFORM[p]);
@@ -46,10 +52,14 @@ export function advise({ socials, holders, medianPer1000 }: CheckInput) {
     const tip = aud.platform === "farcaster"
       ? "Most of your audience is on Farcaster, where people already have a wallet in the app, so they are the easiest to convert. Cast your coin with a line about what holding it means."
       : `Most of your audience is on ${where}, where most people don't have a crypto wallet yet. Link straight to your coin on Zora rather than a contract address, and say plainly what holding it gets them.`;
-    if (per1000 < medianPer1000) {
-      steps.push({ id: "gap", title: `${per1000Text(per1000)} holders per 1,000 followers, against a median of ${per1000Text(medianPer1000)}`, body: tip });
+    const peers = platformMedians?.[aud.platform];
+    const own = peers && peers.n >= MIN_PEERS;
+    const bench = own ? peers.median : medianPer1000;
+    const of = own ? ` for creators whose biggest audience is on ${where}` : "";
+    if (per1000 < bench) {
+      steps.push({ id: "gap", title: `${per1000Text(per1000)} holders per 1,000 followers, against a median of ${per1000Text(bench)}${of}`, body: tip });
     } else {
-      steps.push({ id: "ahead", title: `${per1000Text(per1000)} holders per 1,000 followers, above the median of ${per1000Text(medianPer1000)}`,
+      steps.push({ id: "ahead", title: `${per1000Text(per1000)} holders per 1,000 followers, above the median of ${per1000Text(bench)}${of}`,
         body: `Your audience already converts better than most, so more holders come from more reach. Post where your audience is largest (${where}).` });
     }
   }
@@ -70,4 +80,16 @@ export function medianPer1000(rows: { holders: number; socials: Socials }[], min
   if (!xs.length) return 0;
   const m = xs.length >> 1;
   return xs.length % 2 ? xs[m] : (xs[m - 1] + xs[m]) / 2;
+}
+
+/** medianPer1000 per platform (each coin counted under its largest linked audience), with the count. */
+export function mediansByPlatform(rows: { holders: number; socials: Socials }[], minReach = 1_000, minHolders = FIRST_HOLDERS) {
+  const by: Record<string, { holders: number; socials: Socials }[]> = {};
+  for (const r of rows) { const p = reach(r.socials).platform; if (p) (by[p] ??= []).push(r); }
+  const out: Record<string, { median: number; n: number }> = {};
+  for (const [p, rs] of Object.entries(by)) {
+    const n = rs.filter((r) => reach(r.socials).total >= minReach && r.holders >= minHolders).length;
+    if (n) out[p] = { median: medianPer1000(rs, minReach, minHolders), n };
+  }
+  return out;
 }

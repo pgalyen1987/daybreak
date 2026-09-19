@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advise, medianPer1000 } from "@/lib/advice";
+import { advise, medianPer1000, mediansByPlatform } from "@/lib/advice";
 
 const ids = (r: ReturnType<typeof advise>) => r.steps.map((s) => s.id);
 
@@ -53,5 +53,30 @@ describe("medianPer1000", () => {
     ];
     expect(medianPer1000(rows)).toBe(2);
     expect(medianPer1000([])).toBe(0);
+  });
+});
+
+describe("compared with creators on the same platform", () => {
+  const socials = { twitter: 50_000, farcaster: null, instagram: null, tiktok: null };
+  it("uses the platform's median when enough creators share it", () => {
+    const a = advise({ socials, holders: 250, medianPer1000: 18, platformMedians: { twitter: { median: 7, n: 40 } } });
+    const s = a.steps.find((x) => x.id === "ahead" || x.id === "gap")!;
+    expect(s.id).toBe("gap"); // 5 per 1,000 is under X's 7
+    expect(s.title).toContain("for creators whose biggest audience is on X");
+  });
+  it("falls back to the overall median when the platform has too few creators", () => {
+    const a = advise({ socials, holders: 250, medianPer1000: 18, platformMedians: { twitter: { median: 7, n: 3 } } });
+    const s = a.steps.find((x) => x.id === "ahead" || x.id === "gap")!;
+    expect(s.title).toContain("median of 18");
+    expect(s.title).not.toContain("biggest audience");
+  });
+  it("groups coins by their largest audience", () => {
+    const rows = [
+      { holders: 30, socials: { twitter: 10_000, farcaster: 1_000, instagram: null, tiktok: null } },
+      { holders: 60, socials: { twitter: 500, farcaster: 2_000, instagram: null, tiktok: null } },
+    ];
+    const m = mediansByPlatform(rows);
+    expect(m.twitter).toEqual({ median: 3, n: 1 });
+    expect(m.farcaster).toEqual({ median: 30, n: 1 });
   });
 });
