@@ -32,7 +32,8 @@ export default function Home() {
           Every Zora creator with a linked audience of 1,000+ and at least {MIN_HOLDERS} holders. Dots low and to the right have big
           followings and few holders: audiences that haven&apos;t found the coin yet. The ten largest gaps are highlighted.
         </p>
-        <p className="lede">Are you a creator? <Link href="/check/">Check your own coin</Link>: it works for any Zora profile and says what to do next.</p>
+        <p className="lede">Are you a creator? <Link href="/check/">Check your own coin</Link>: it works for any Zora profile and says what to do next.
+          Also here: <Link href="/rewards/">who Zora pays on every trade</Link> and <Link href="/tags/">what its tags are worth</Link>.</p>
       </section>
       <section className="panel">
         <GapMap points={points} labelKeys={top.slice(0, 3).map((r) => r.address)} />

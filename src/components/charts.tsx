@@ -139,3 +139,41 @@ export function HolderLine({ series }: { series: { ts: number; holders: number }
     </svg></div>
   );
 }
+
+/** Daily totals stacked by part (each part a CSS color token), with the day's total on hover. */
+export function StackedBars({ daily, parts }: { daily: { day: string; values: Record<string, number> }[]; parts: { key: string; label: string; color: string }[] }) {
+  const W = 1000, H = 230, L = 84, R = 12, T = 18, B = 30;
+  const total = (d: { values: Record<string, number> }) => parts.reduce((a, p) => a + (d.values[p.key] || 0), 0);
+  const step = (v: number) => { if (v <= 0) return 100; const p = 10 ** Math.floor(Math.log10(v)); return Math.ceil(v / p) * p; };
+  const top = step(Math.max(...daily.map(total), 1));
+  const y = (v: number) => T + ((H - T - B) * (top - v)) / top;
+  const bw = (W - L - R) / Math.max(1, daily.length);
+  return (
+    <div className="scrollx"><svg className="chart wide" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Daily rewards in US dollars, by who received them">
+      {[top, top / 2, 0].map((v) => (
+        <g key={v}>
+          <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={v === 0 ? "var(--muted)" : "var(--grid)"} />
+          <text x={L - 8} y={y(v) + 4} textAnchor="end">{usd(v)}</text>
+        </g>
+      ))}
+      {daily.map((d, i) => {
+        const x = L + i * bw + bw * 0.22, w = bw * 0.56;
+        const date = new Date(d.day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+        let acc = 0;
+        return (
+          <g key={d.day} tabIndex={0} data-tip={`${date}  ${usd(total(d))}: ${parts.map((p) => `${p.label.toLowerCase()} ${usd(d.values[p.key] || 0)}`).join(" · ")}`}>
+            <rect x={L + i * bw} y={T} width={bw} height={H - T - B} fill="transparent" />
+            {parts.map((p) => {
+              const v = d.values[p.key] || 0;
+              if (v <= 0) return null;
+              const y1 = y(acc + v), y0 = y(acc);
+              acc += v;
+              return <rect key={p.key} x={x} y={y1} width={w} height={Math.max(1, y0 - y1 - 0.5)} fill={p.color} />;
+            })}
+            {(daily.length <= 16 || i % Math.ceil(daily.length / 12) === 0) && <text x={x + w / 2} y={H - 6} textAnchor="middle">{date}</text>}
+          </g>
+        );
+      })}
+    </svg></div>
+  );
+}

@@ -91,6 +91,7 @@ table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .steps li::marker { color: var(--gap); font: 600 14px var(--font-mono), ui-monospace, monospace; }
 .steps b { display: block; margin-bottom: 3px; }
 .steps .note + .share { margin-top: 4px; }
+.pairs { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
 .share { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 .prose { max-width: 70ch; display: grid; gap: 14px; }
 .prose p, .prose li { color: var(--ink); }

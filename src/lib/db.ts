@@ -57,4 +57,43 @@ export function migrate(d: Database.Database) {
   const cols = (d.prepare("PRAGMA table_info(coins)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("total_supply")) d.exec("ALTER TABLE coins ADD COLUMN total_supply REAL");
   d.exec("CREATE TABLE IF NOT EXISTS swap_coverage (address TEXT PRIMARY KEY, since INTEGER NOT NULL)");
+  // Trading rewards (lib/rewards.ts): raw payouts for a day, daily totals per
+  // wallet and per coin for 35, per role for good
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS rewards (
+      tx TEXT NOT NULL, log_index INTEGER NOT NULL, block INTEGER NOT NULL, ts INTEGER NOT NULL,
+      kind TEXT NOT NULL, coin TEXT NOT NULL, currency TEXT NOT NULL,
+      creator TEXT, platform TEXT, trade TEXT, protocol TEXT, doppler TEXT,
+      creator_amt REAL, platform_amt REAL, trade_amt REAL, protocol_amt REAL, doppler_amt REAL,
+      unit_usd REAL,
+      PRIMARY KEY (tx, log_index)
+    );
+    CREATE INDEX IF NOT EXISTS rewards_by_ts ON rewards (ts);
+    CREATE INDEX IF NOT EXISTS rewards_by_coin ON rewards (coin, ts);
+    CREATE TABLE IF NOT EXISTS reward_daily (
+      day TEXT NOT NULL, role TEXT NOT NULL, recipient TEXT NOT NULL,
+      usd REAL NOT NULL, events INTEGER NOT NULL, unpriced INTEGER NOT NULL,
+      PRIMARY KEY (day, role, recipient)
+    );
+    CREATE TABLE IF NOT EXISTS reward_role_daily (
+      day TEXT NOT NULL, role TEXT NOT NULL, usd REAL NOT NULL, events INTEGER NOT NULL, unpriced INTEGER NOT NULL,
+      PRIMARY KEY (day, role)
+    );
+    CREATE TABLE IF NOT EXISTS coin_reward_daily (
+      day TEXT NOT NULL, coin TEXT NOT NULL, creator_usd REAL NOT NULL, events INTEGER NOT NULL, unpriced INTEGER NOT NULL,
+      PRIMARY KEY (day, coin)
+    );
+    CREATE TABLE IF NOT EXISTS cursors (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS prices (address TEXT PRIMARY KEY, usd REAL, ts INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS names (address TEXT PRIMARY KEY, handle TEXT, ts INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS trends (
+      address TEXT PRIMARY KEY, symbol TEXT, name TEXT, created_at TEXT, creator_address TEXT,
+      first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS trend_snapshots (
+      address TEXT NOT NULL, ts INTEGER NOT NULL,
+      holders INTEGER, market_cap REAL, volume_24h REAL, total_volume REAL,
+      PRIMARY KEY (address, ts)
+    );
+  `);
 }

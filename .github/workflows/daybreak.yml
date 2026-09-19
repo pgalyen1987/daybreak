@@ -55,6 +55,8 @@ jobs:
           npx tsx scripts/collect.ts snapshots
           npx tsx scripts/collect.ts swaps
           npx tsx scripts/collect.ts holders
+          npx tsx scripts/collect.ts rewards
+          npx tsx scripts/collect.ts trends
 
       - name: Prune
         run: npx tsx scripts/prune.ts

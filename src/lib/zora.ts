@@ -1,8 +1,8 @@
 // Thin, retrying wrappers over the Zora coins API. Every list endpoint returns at most 20 items per
 // page, so everything here pages with cursors and backs off on rate limits.
 import {
-  getCoinHolders, getCoinSwaps, getExploreTopVolumeCreators24h, getMostValuableCreatorCoins,
-  getProfile, getTrendingCreators, setApiKey,
+  getCoin, getCoinHolders, getCoinSwaps, getExploreTopVolumeCreators24h, getMostValuableCreatorCoins, getMostValuableTrends,
+  getNewTrends, getProfile, getTopVolumeTrends24h, getTrendingCreators, getTrendingTrends, setApiKey,
 } from "@zoralabs/coins-sdk";
 
 if (process.env.ZORA_API_KEY) setApiKey(process.env.ZORA_API_KEY);
@@ -61,10 +61,14 @@ const LISTS = {
 
 /** Page through one explore list, up to maxPages x 20 coins. */
 export async function exploreList(name: keyof typeof LISTS, maxPages: number): Promise<ListCoin[]> {
+  return pageList(LISTS[name], `list ${name}`, maxPages);
+}
+
+async function pageList(fn: (q: any) => Promise<any>, label: string, maxPages: number): Promise<ListCoin[]> {
   const out: ListCoin[] = [];
   let after: string | undefined;
   for (let p = 0; p < maxPages; p++) {
-    const r: any = await withRetry(() => (LISTS[name] as any)({ count: 20, after }), `list ${name}`);
+    const r: any = await withRetry(() => fn({ count: 20, after }), label);
     const list = r.data?.exploreList;
     for (const e of list?.edges ?? []) out.push(toListCoin(e.node));
     if (!list?.pageInfo?.hasNextPage || !list.pageInfo.endCursor) break;
@@ -82,6 +86,40 @@ export async function universe(pagesPerList: number): Promise<ListCoin[]> {
     }
   }
   return [...byAddr.values()];
+}
+
+const TREND_LISTS = {
+  trending: getTrendingTrends,
+  topVolume24h: getTopVolumeTrends24h,
+  newest: getNewTrends,
+  mostValuable: getMostValuableTrends,
+} as const;
+
+/** Trend coins (Zora's tags): the union of the four trend lists. */
+export async function trendUniverse(pagesPerList: number): Promise<ListCoin[]> {
+  const byAddr = new Map<string, ListCoin>();
+  for (const [name, fn] of Object.entries(TREND_LISTS)) {
+    for (const c of await pageList(fn, `trends ${name}`, pagesPerList)) {
+      if (c.coinType === "TREND" && !byAddr.has(c.address)) byAddr.set(c.address, c);
+    }
+  }
+  return [...byAddr.values()];
+}
+
+/** A coin's price in dollars and in its pool currency, and which currency that is. */
+export async function coinQuote(address: string): Promise<{ usd: number | null; inPool: number | null; poolCurrency: string | null } | null> {
+  const r: any = await withRetry(() => getCoin({ address, chain: CHAIN }) as any, `coin ${address}`, 3);
+  const t = r.data?.zora20Token;
+  if (!t) return null;
+  const num = (v: unknown) => (v != null && Number(v) > 0 ? Number(v) : null);
+  return { usd: num(t.tokenPrice?.priceInUsdc), inPool: num(t.tokenPrice?.priceInPoolToken), poolCurrency: t.poolCurrencyToken?.address?.toLowerCase() ?? null };
+}
+
+/** The Zora handle for a wallet, or null when it has no profile. */
+export async function profileHandle(address: string): Promise<string | null> {
+  const r: any = await withRetry(() => getProfile({ identifier: address }) as any, `profile ${address}`, 3);
+  const h: string | null = r.data?.profile?.handle ?? null;
+  return h && !/^0x[0-9a-f]{4}\.\.\.[0-9a-f]{4}$/i.test(h) ? h : null; // a wallet with no profile gets its own short address
 }
 
 export type SocialCounts = {
