@@ -68,7 +68,7 @@ export function FlowBars({ daily }: { daily: { day: string; buy: number; sell: n
       {[top, 0, -bot].map((v) => (
         <g key={v}>
           <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={v === 0 ? "var(--muted)" : "var(--grid)"} />
-          <text x={L - 8} y={y(v) + 4} textAnchor="end">{v === 0 ? "$0" : (v < 0 ? "−" : "") + usd(Math.abs(v))}</text>
+          <text x={L - 8} y={y(v) + 4} textAnchor="end">{usd(v)}</text>
         </g>
       ))}
       {daily.map((d, i) => {

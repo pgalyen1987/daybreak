@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { churn, conversion, gapScores, percentileRank, reach, volumePatterns } from "@/lib/metrics";
+import { usd } from "@/lib/format";
 
 describe("reach", () => {
   it("takes the largest single audience, not the sum", () => {
@@ -101,5 +102,15 @@ describe("volumePatterns", () => {
   it("measures concentration", () => {
     expect(v.topTraderShare).toBeCloseTo(0.8);
     expect(v.top5Share).toBe(1);
+  });
+});
+
+describe("usd", () => {
+  it("shows cents under a dollar, a real minus, and compacts large amounts", () => {
+    expect(usd(0)).toBe("$0");
+    expect(usd(0.4321)).toBe("$0.43");
+    expect(usd(-5.2)).toBe("−$5");
+    expect(usd(25432)).toBe("$25,432");
+    expect(usd(1_500_000)).toBe("$1.5M");
   });
 });
