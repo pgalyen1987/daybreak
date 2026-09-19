@@ -1,11 +1,14 @@
 // The site's share image (public/og.png): the gap map itself, drawn from the database, in the
 // dark "night map" palette. Writes an HTML page; distribution-kit/bin/render-html.py turns it
 // into the 1200x630 PNG. Run: npx tsx scripts/og-card.ts > /tmp/og.html
+// EMBED=1 draws the 3:2 card Farcaster shows for the mini app embed (public/embed.png, 1200x800).
 import { leads, stats } from "../src/lib/queries";
 
+const EMBED = process.env.EMBED === "1";
+const PAGE_H = EMBED ? 800 : 630;
 const rows = leads();
 const s = stats();
-const W = 560, H = 430, L = 20, B = 20;
+const W = 560, H = EMBED ? 560 : 430, L = 20, B = 20;
 const x0 = 3, x1 = 7, y0 = 1, y1 = 4.3;
 const X = (v: number) => L + ((W - L - 10) * (Math.log10(Math.max(v, 1000)) - x0)) / (x1 - x0);
 const Y = (v: number) => 10 + ((H - B - 10) * (y1 - Math.log10(Math.max(v, 10)))) / (y1 - y0);
@@ -22,15 +25,15 @@ const diag = [0.01, 0.001, 0.0001].map((rate) => {
 console.log(`<!doctype html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;width:1200px;height:630px;background:#0e1422;color:#e7ebf3;font-family:"IBM Plex Sans",sans-serif}
-  .wrap{display:grid;grid-template-columns:540px 1fr;height:100%;padding:56px 56px 48px;box-sizing:border-box;gap:28px}
+  html,body{margin:0;width:1200px;height:${PAGE_H}px;background:#0e1422;color:#e7ebf3;font-family:"IBM Plex Sans",sans-serif}
+  .wrap{display:grid;grid-template-columns:540px 1fr;height:100%;padding:56px 56px ${EMBED ? 88 : 48}px;box-sizing:border-box;gap:28px;align-items:${EMBED ? "center" : "stretch"}}
   .brand{font:800 30px/1 Archivo,sans-serif;font-stretch:115%;letter-spacing:.02em;text-transform:uppercase}
   .brand span{color:#c08628}
   h1{font:800 50px/1.05 Archivo,sans-serif;font-stretch:112%;margin:40px 0 18px;letter-spacing:-.01em}
   p{font-size:23px;line-height:1.45;color:#aab3c5;margin:0}
   .facts{display:flex;gap:34px;margin-top:40px;font:500 16px/1.3 "IBM Plex Mono",monospace;color:#8d97ac}
   .facts b{display:block;font-size:30px;color:#e7ebf3;font-weight:500}
-  .map{background:#141b2d;border:1px solid #25304a;border-radius:12px;display:grid;place-items:center}
+  .map{background:#141b2d;border:1px solid #25304a;border-radius:12px;display:grid;place-items:center;${EMBED ? "height:620px" : ""}}
   .foot{position:absolute;left:56px;bottom:40px;font:500 16px "IBM Plex Mono",monospace;color:#8d97ac}
 </style></head><body><div class="wrap">
   <div>
