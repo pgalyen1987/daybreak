@@ -15,7 +15,13 @@ export function generateMetadata({ params }: { params: { address: string } }): M
   const c = coinByAddress(params.address);
   if (!c) return { title: "Coin not found" };
   const name = `@${c.handle ?? c.symbol}`;
-  return { title: `$${c.symbol} holders, churn and trading`, description: `${name}'s Zora creator coin: ${int(c.holders)} holders, trading patterns, holder churn and how much of their audience holds it.` };
+  const card = `/coin/${c.address}/card.png`;
+  return {
+    title: `$${c.symbol} holders, churn and trading`,
+    description: `${name}'s Zora creator coin: ${int(c.holders)} holders, trading patterns, holder churn and how much of their audience holds it.`,
+    openGraph: { images: [{ url: card, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", images: [card] },
+  };
 }
 
 export default function CoinPage({ params }: { params: { address: string } }) {
