@@ -3,6 +3,7 @@
 // isn't a kindness. Prints JSON. Run: DATA_DIR=... npx tsx scripts/weekly.ts
 import { open } from "../src/lib/db";
 import { leads, stats } from "../src/lib/queries";
+import { rewardsSummary, tags } from "../src/lib/zora-queries";
 
 const db = open();
 const WEEK = 7 * 86_400_000;
@@ -22,7 +23,20 @@ const busiest = [...byHour.entries()].sort((a, b) => b[1] - a[1])[0];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const newCoins = (db.prepare("SELECT COUNT(*) AS n FROM coins WHERE first_seen >= ?").get(now - WEEK) as { n: number }).n;
 
+// Wednesday's post: who Zora paid (roles only, no wallet named); Friday's: tags, which are topics, not people
+const r = rewardsSummary(7);
+const rewards = r && r.total > 0 ? {
+  since: r.earliest, totalUsd: Math.round(r.total), payouts: r.payouts, pricedShare: r.payouts ? r.priced / r.payouts : 0,
+  share: Object.fromEntries(Object.entries(r.byRole).map(([k, v]) => [k, v / r.total])),
+} : null;
+const tl = tags();
+const tagStats = tl.length ? {
+  count: tl.length, volume24hUsd: Math.round(tl.reduce((a, t) => a + t.volume24h, 0)), thin: tl.filter((t) => t.holders < 5).length,
+  top: [...tl].sort((a, b) => b.volume24h - a.volume24h).slice(0, 3).map((t) => ({ tag: t.symbol, usd: Math.round(t.volume24h) })),
+} : null;
+
 console.log(JSON.stringify({
+  rewards, tags: tagStats,
   coins: s.coins,
   withAudience: all.length,
   newCoins,
