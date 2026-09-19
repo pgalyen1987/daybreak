@@ -2,7 +2,7 @@
 :root {
   color-scheme: light dark;
   --bg: #f3f5f7; --card: #ffffff; --ink: #121821; --muted: #5a6473; --line: #dde2e8; --faint: #ebeef2; --grid: #e6e9ed;
-  --gap: #b07a20; --rest: #4a6fb5; --buy: #2b59c3; --sell: #b8336a; --link: #2b59c3;
+  --gap: #8d621a; --rest: #4a6fb5; --buy: #2b59c3; --sell: #b8336a; --link: #2b59c3;
   --heat-0: #eef1f4; --heat-1: #f1e3c4; --heat-2: #e2c286; --heat-3: #c99a48; --heat-4: #9c6e1a;
   --tip-bg: #121821; --tip-ink: #f3f5f7;
 }
