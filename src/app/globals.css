@@ -80,6 +80,7 @@ table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .btn:hover { text-decoration: none; opacity: .9; }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .note { color: var(--muted); font-size: 13px; margin: 0; }
+.share { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 .prose { max-width: 70ch; display: grid; gap: 14px; }
 .prose p, .prose li { color: var(--ink); }
 .prose h2 { margin-top: 10px; }

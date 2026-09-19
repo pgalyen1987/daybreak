@@ -35,6 +35,10 @@ export default function CoinPage({ params }: { params: { address: string } }) {
   const conc = topHolderShare(c.address);
   const series = holderSeries(c.address);
   const socials = Object.entries(c.socials).filter(([, v]) => v != null && v > 0) as [string, number][];
+  // A creator sharing their own coin's page is the cheapest reach Daybreak gets; the text is the
+  // page's own numbers, nothing added.
+  const pageUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}/coin/${c.address}/`;
+  const shareText = `$${c.symbol} on Daybreak: ${aud.total > 0 ? `${compact(aud.total)} followers, ` : ""}${int(c.holders)} holders.`;
   return (
     <>
       <section style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", alignItems: "end", justifyContent: "space-between" }}>
@@ -42,6 +46,11 @@ export default function CoinPage({ params }: { params: { address: string } }) {
           <p className="kicker">Creator coin</p>
           <h1>${c.symbol}</h1>
           <p className="lede">@{c.handle ?? "unknown"}{c.name && c.name !== c.symbol ? ` · ${c.name}` : ""}</p>
+          <p className="share">Share this page:{" "}
+            <a href={`https://farcaster.xyz/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(pageUrl)}`} target="_blank" rel="noopener noreferrer">Farcaster</a>{" · "}
+            <a href={`https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}`} target="_blank" rel="noopener noreferrer">X</a>{" · "}
+            <a href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${shareText} ${pageUrl}`)}`} target="_blank" rel="noopener noreferrer">Bluesky</a>
+          </p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <a className="btn" href={zoraUrl(c.address)} target="_blank" rel="noopener noreferrer">Buy on Zora</a>
