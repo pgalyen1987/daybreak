@@ -2,11 +2,14 @@
 //   tsx scripts/collect.ts snapshots   coin stats for the tracked universe + creator follower counts
 //   tsx scripts/collect.ts swaps       new trades since the last stored one, per coin
 //   tsx scripts/collect.ts holders     today's holder set per coin (all holders if small, else the top N)
+//   tsx scripts/collect.ts rewards     every Zora trading-reward payout since the last run, from Base's logs
+//   tsx scripts/collect.ts trends      trend coins (Zora's tags): stats hourly, holder sets of the busiest daily
 // Environment: DATA_DIR (sqlite location), ZORA_API_KEY (optional, raises rate limits),
 //   PAGES_PER_LIST (default 10 -> up to 200 coins per list), CONCURRENCY (default 3),
-//   HOLDER_MAX_COINS (holder sets fetched per run; default all).
+//   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC).
 import { open } from "../src/lib/db";
-import { holders, pool, profileSocials, recentSwaps, universe } from "../src/lib/zora";
+import { chunks, blockTime, decodeReward, ROLES, USDC, ZORA_TOKEN, MARKET_TOPIC, CREATOR_TOPIC, zoraUsd, type RawLog, type Reward } from "../src/lib/rewards";
+import { coinQuote, holders, pool, profileHandle, profileSocials, recentSwaps, trendUniverse, universe } from "../src/lib/zora";
 
 const PAGES_PER_LIST = Number(process.env.PAGES_PER_LIST || 10);
 const CONCURRENCY = Number(process.env.CONCURRENCY || 3);
@@ -112,12 +115,151 @@ async function holderSets() {
   log(`holders: ${coins.length} coins, ${errors} errors`);
 }
 
+// --- rewards ---------------------------------------------------------------------------------
+const RPC = process.env.BASE_RPC_URL || "https://mainnet.base.org";
+const REWARD_CHUNK = 1500;       // blocks per eth_getLogs call (an hour is 1,800; ~400 payouts)
+const REWARD_MAX_CHUNKS = 60;    // per run, so a long gap catches up over several runs
+const REWARD_BACKFILL = 43_200;  // the first run starts a day back
+const PRICE_FETCH_MAX = 60;      // unknown currencies priced per run; the rest wait for the next
+const NAME_FETCH_MAX = 40;       // wallets given a Zora handle per run
+
+async function rpc<T>(method: string, params: unknown[], tries = 4): Promise<T> {
+  let wait = 1000;
+  for (let i = 1; ; i++) {
+    try {
+      const r = await fetch(RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+      const j = await r.json();
+      if (j.error) throw new Error(`${method}: ${j.error.message}`);
+      return j.result as T;
+    } catch (e) {
+      if (i >= tries) throw e;
+      await new Promise((ok) => setTimeout(ok, wait));
+      wait *= 2;
+    }
+  }
+}
+const hex = (n: number) => "0x" + n.toString(16);
+
+/** USD per unit of each currency: USDC is 1, ZORA via any coin priced in it, creator coins from our
+ *  snapshots or a recent price, else the API (capped per run). Unknown stays null (counted unpriced). */
+async function unitPrices(currencies: string[]): Promise<Map<string, number | null>> {
+  const out = new Map<string, number | null>();
+  const tracked = db.prepare(`SELECT s.price_usd AS usd FROM coin_snapshots s WHERE s.address = ? ORDER BY ts DESC LIMIT 1`);
+  const cached = db.prepare("SELECT usd FROM prices WHERE address = ? AND ts > ?");
+  const save = db.prepare("INSERT OR REPLACE INTO prices (address, usd, ts) VALUES (?, ?, ?)");
+  let fetched = 0;
+  for (const c of currencies) {
+    if (c === USDC) { out.set(c, 1); continue; }
+    if (c === ZORA_TOKEN) {
+      const hit = cached.get(c, now - 3_600_000) as { usd: number | null } | undefined;
+      if (hit) { out.set(c, hit.usd); continue; }
+      // any tracked creator coin is priced in ZORA; take the biggest
+      const ref = db.prepare(`SELECT c.address FROM coins c JOIN coin_snapshots s ON s.address = c.address
+        WHERE s.ts = (SELECT MAX(ts) FROM coin_snapshots) ORDER BY s.market_cap DESC LIMIT 1`).get() as { address: string } | undefined;
+      const q = ref ? await coinQuote(ref.address).catch(() => null) : null;
+      const usd = q && q.poolCurrency === ZORA_TOKEN ? zoraUsd(q.usd ?? 0, q.inPool ?? 0) : null;
+      save.run(c, usd, now); out.set(c, usd); continue;
+    }
+    const t = tracked.get(c) as { usd: number | null } | undefined;
+    if (t?.usd) { out.set(c, t.usd); continue; }
+    const hit = cached.get(c, now - 6 * 3_600_000) as { usd: number | null } | undefined;
+    if (hit) { out.set(c, hit.usd); continue; }
+    if (fetched >= PRICE_FETCH_MAX) { out.set(c, null); continue; }
+    fetched++;
+    const q = await coinQuote(c).catch(() => null);
+    save.run(c, q?.usd ?? null, now);
+    out.set(c, q?.usd ?? null);
+  }
+  return out;
+}
+
+async function rewards() {
+  const run = startRun("rewards");
+  const head = parseInt(await rpc<string>("eth_blockNumber", []), 16) - 5; // a few blocks back from the tip
+  const ref = await rpc<{ timestamp: string }>("eth_getBlockByNumber", [hex(head), false]);
+  const refTs = parseInt(ref.timestamp, 16) * 1000;
+  const cur = db.prepare("SELECT value FROM cursors WHERE name = 'rewards'").get() as { value: number } | undefined;
+  const ranges = chunks((cur?.value ?? head - REWARD_BACKFILL) + 1, head, REWARD_CHUNK).slice(0, REWARD_MAX_CHUNKS);
+  const decoded: Reward[] = [];
+  let errors = 0, last = cur?.value ?? head - REWARD_BACKFILL;
+  for (const [a, b] of ranges) {
+    try {
+      const logs = await rpc<RawLog[]>("eth_getLogs", [{ fromBlock: hex(a), toBlock: hex(b), topics: [[MARKET_TOPIC, CREATOR_TOPIC]] }]);
+      for (const l of logs) { const r = decodeReward(l); if (r) decoded.push(r); }
+      last = b;
+    } catch (e) { errors++; log("rewards error", a, b, String(e).slice(0, 120)); break; } // resume from here next run
+  }
+  const prices = await unitPrices([...new Set(decoded.map((r) => r.currency))]);
+  const ins = db.prepare(`INSERT OR IGNORE INTO rewards (tx, log_index, block, ts, kind, coin, currency, creator, platform, trade, protocol, doppler,
+      creator_amt, platform_amt, trade_amt, protocol_amt, doppler_amt, unit_usd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const daily = db.prepare(`INSERT INTO reward_daily (day, role, recipient, usd, events, unpriced) VALUES (?, ?, ?, ?, 1, ?)
+      ON CONFLICT(day, role, recipient) DO UPDATE SET usd = usd + excluded.usd, events = events + 1, unpriced = unpriced + excluded.unpriced`);
+  let added = 0;
+  db.transaction(() => {
+    for (const r of decoded) {
+      const ts = blockTime(r.block, head, refTs), unit = prices.get(r.currency) ?? null;
+      const x = ins.run(r.tx, r.logIndex, r.block, ts, r.kind, r.coin, r.currency, r.recipients.creator, r.recipients.platform, r.recipients.trade,
+        r.recipients.protocol, r.recipients.doppler, r.amounts.creator, r.amounts.platform, r.amounts.trade, r.amounts.protocol, r.amounts.doppler, unit);
+      if (!x.changes) continue; // seen before: already in the daily totals
+      added++;
+      const d = new Date(ts).toISOString().slice(0, 10);
+      for (const role of ROLES) {
+        const who = r.recipients[role];
+        if (!who || !(r.amounts[role] > 0)) continue;
+        daily.run(d, role, who, unit == null ? 0 : r.amounts[role] * unit, unit == null ? 1 : 0);
+      }
+    }
+    db.prepare("INSERT OR REPLACE INTO cursors (name, value) VALUES ('rewards', ?)").run(last);
+  })();
+
+  // Handles for the wallets the page will list: the top earners of the week in each role
+  const since = new Date(now - 7 * 86_400_000).toISOString().slice(0, 10);
+  const top = db.prepare(`SELECT recipient FROM reward_daily WHERE day >= ? AND role = ? GROUP BY recipient ORDER BY SUM(usd) DESC LIMIT 15`);
+  const known = db.prepare("SELECT 1 FROM names WHERE address = ? AND ts > ?");
+  const want = [...new Set(["creator", "platform", "trade"].flatMap((role) => (top.all(since, role) as { recipient: string }[]).map((x) => x.recipient)))]
+    .filter((a) => !known.get(a, now - 7 * 86_400_000)).slice(0, NAME_FETCH_MAX);
+  const saveName = db.prepare("INSERT OR REPLACE INTO names (address, handle, ts) VALUES (?, ?, ?)");
+  await pool(want, CONCURRENCY, async (a) => { try { saveName.run(a, await profileHandle(a), now); } catch { errors++; } });
+  endRun(run, added, errors, `blocks to ${last}`);
+  log(`rewards: ${added} new payouts from ${ranges.length} block ranges (to ${last}), ${[...prices.values()].filter((v) => v == null).length} currencies unpriced, ${want.length} names, ${errors} errors`);
+}
+
+// --- trends (tags) ---------------------------------------------------------------------------
+const TREND_PAGES = Number(process.env.TREND_PAGES || 5);   // up to 100 per list
+const TREND_HOLDER_COINS = 15;                               // busiest tags get a daily holder set, for overlap
+
+async function trends() {
+  const run = startRun("trends");
+  const list = await trendUniverse(TREND_PAGES);
+  const up = db.prepare(`INSERT INTO trends (address, symbol, name, created_at, creator_address, first_seen, last_seen)
+      VALUES (@address, @symbol, @name, @createdAt, @creatorAddress, @now, @now)
+      ON CONFLICT(address) DO UPDATE SET symbol=excluded.symbol, name=excluded.name, last_seen=excluded.last_seen`);
+  const snap = db.prepare("INSERT OR REPLACE INTO trend_snapshots (address, ts, holders, market_cap, volume_24h, total_volume) VALUES (?, ?, ?, ?, ?, ?)");
+  db.transaction(() => { for (const t of list) { up.run({ ...t, now }); snap.run(t.address, now, t.uniqueHolders, t.marketCap, t.volume24h, t.totalVolume); } })();
+  // holder sets once a day for the busiest tags (they're small, so each is complete)
+  const done = new Set((db.prepare("SELECT address FROM holder_meta WHERE day = ?").all(day) as { address: string }[]).map((r) => r.address));
+  const busiest = [...list].sort((a, b) => b.volume24h - a.volume24h).slice(0, TREND_HOLDER_COINS).filter((t) => !done.has(t.address));
+  const ins = db.prepare("INSERT OR REPLACE INTO holder_snapshots (address, day, wallet, balance) VALUES (?, ?, ?, ?)");
+  const meta = db.prepare("INSERT OR REPLACE INTO holder_meta (address, day, total, captured) VALUES (?, ?, ?, ?)");
+  let errors = 0;
+  await pool(busiest, CONCURRENCY, async (t) => {
+    try {
+      const h = await holders(t.address, HOLDER_TOP_PAGES);
+      db.transaction(() => { for (const r of h.rows) ins.run(t.address, day, r.wallet, r.balance); meta.run(t.address, day, h.total, h.rows.length); })();
+    } catch (e) { errors++; log("trend holders error", t.symbol, String(e).slice(0, 120)); }
+  });
+  endRun(run, list.length, errors);
+  log(`trends: ${list.length} tags, ${busiest.length} holder sets, ${errors} errors`);
+}
+
 async function main() {
   const mode = process.argv[2] ?? "all";
   const t0 = Date.now();
   if (mode === "snapshots" || mode === "all") await snapshots();
   if (mode === "swaps" || mode === "all") await swaps();
   if (mode === "holders" || mode === "all") await holderSets();
+  if (mode === "rewards" || mode === "all") await rewards();
+  if (mode === "trends" || mode === "all") await trends();
   log(`done in ${Math.round((Date.now() - t0) / 1000)}s`);
 }
 

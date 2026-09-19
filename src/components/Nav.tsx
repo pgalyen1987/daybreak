@@ -6,6 +6,8 @@ const LINKS = [
   { href: "/", label: "Map" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/check", label: "Your coin" },
+  { href: "/rewards", label: "Rewards" },
+  { href: "/tags", label: "Tags" },
   { href: "/method", label: "Method" },
 ];
 

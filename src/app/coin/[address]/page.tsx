@@ -5,6 +5,7 @@ import { FlowBars, Heatmap, HolderLine } from "@/components/charts";
 import { miniappMeta } from "@/lib/embed";
 import { compact, int, pct, PLATFORM, usd, zoraUrl } from "@/lib/format";
 import { allCoins, coinByAddress, coinTrades, holderChurn, holderSeries, leads, reach, topHolderShare } from "@/lib/queries";
+import { coinCreatorEarnings } from "@/lib/zora-queries";
 
 // One page per tracked coin, written at build time.
 export const dynamicParams = false;
@@ -38,6 +39,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
   const churn = holderChurn(c.address);
   const conc = topHolderShare(c.address);
   const series = holderSeries(c.address);
+  const earned = coinCreatorEarnings(c.address, 7);
   const socials = Object.entries(c.socials).filter(([, v]) => v != null && v > 0) as [string, number][];
   // A creator sharing their own coin's page is the cheapest reach Daybreak gets; the text is the
   // page's own numbers, nothing added.
@@ -68,6 +70,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
           <div><b>{usd(c.marketCap)}</b>market cap</div>
           <div><b>{usd(p.totalUsd)}</b>volume, 7 days</div>
           <div><b>{int(p.traders)}</b>traders, 7 days</div>
+          {earned && <div><b>{usd(earned.usd)}</b><Link href="/rewards">paid to the creator</Link>, 7 days</div>}
           {lead && <div><b style={{ color: "var(--gap)" }}>{lead.score}</b>gap score</div>}
         </div>
       </section>
