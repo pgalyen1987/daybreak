@@ -8,6 +8,7 @@ import { advise, per1000Text } from "@/lib/advice";
 import { compact, int, PLATFORM, zoraUrl } from "@/lib/format";
 import type { Socials } from "@/lib/metrics";
 import { CoinAvatar } from "@/components/CoinAvatar";
+import { ShareBar } from "@/components/ShareBar";
 
 const API = "https://api-sdk.zora.engineering";
 const KEYCAST = "https://keycast-production.up.railway.app";
@@ -42,6 +43,15 @@ async function lookup(identifier: string): Promise<Result | null> {
     image = t?.mediaContent?.previewImage?.small ?? image;
   }
   return { handle: p.handle || identifier, socials, holders, coin, symbol, image };
+}
+
+
+/** A post in the numbers' own words, true whoever shares it: the creator or someone looking them up. */
+function checkShareText(res: Result, a: NonNullable<ReturnType<typeof advise>>, median: number): string {
+  const head = `$${res.symbol} on Zora: ${res.holders == null ? "no" : int(res.holders)} holders`;
+  if (!(a.reach > 0) || !a.platform) return `${head}. How many of your followers hold your coin?`;
+  const rate = a.per1000 != null ? `, ${per1000Text(a.per1000)} per 1,000 (top creators' median: ${Math.round(median)})` : "";
+  return `${head} from ${compact(a.reach)} ${PLATFORM[a.platform]} followers${rate}. How does your coin compare?`;
 }
 
 export function CoinCheck({ medianPer1000, tracked }: { medianPer1000: number; tracked: string[] }) {
@@ -97,6 +107,15 @@ export function CoinCheck({ medianPer1000, tracked }: { medianPer1000: number; t
             </div>
             {linked.length > 0 && <p className="note">Linked on Zora: {linked.map(([k, v]) => `${PLATFORM[k]} ${compact(v)}`).join(" · ")}. The audience figure uses the largest, since followers overlap.</p>}
           </section>
+
+          {res.coin && res.symbol && (
+            <section className="panel">
+              <h2>Share these numbers</h2>
+              <p className="note">{onDaybreak ? "The post carries a card with the coin's art and these numbers; on Farcaster it opens Daybreak right in the feed." : "The post links to this check, so anyone can look up their own coin."}</p>
+              <ShareBar text={checkShareText(res, a, medianPer1000)} url={onDaybreak ? `${location.origin}/coin/${res.coin}/` : `${location.origin}/check/`}
+                preview={onDaybreak ? `/coin/${res.coin}/card.png` : undefined} />
+            </section>
+          )}
 
           <section className="panel">
             <h2>What to do next</h2>

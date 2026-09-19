@@ -108,6 +108,11 @@ table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .steps .note + .share { margin-top: 4px; }
 .pairs { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
 .share { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.sharebar { display: grid; gap: 14px; justify-items: start; }
+.sharecard { width: min(100%, 480px); height: auto; border-radius: 14px; border: 1px solid var(--line); }
+.sharebtns { display: flex; flex-wrap: wrap; gap: 8px; }
+.sharebtns .btn { padding: 9px 14px; }
+.coinhead .sharebar { margin-top: 12px; }
 .prose { max-width: 70ch; display: grid; gap: 14px; }
 .prose p, .prose li { color: var(--ink); }
 .prose h2 { margin-top: 10px; }

@@ -7,6 +7,7 @@ import { compact, int, pct, PLATFORM, usd, zoraUrl } from "@/lib/format";
 import { allCoins, coinByAddress, coinTrades, holderChurn, holderSeries, leads, reach, topHolderShare } from "@/lib/queries";
 import { coinCreatorEarnings } from "@/lib/zora-queries";
 import { CoinAvatar } from "@/components/CoinAvatar";
+import { ShareBar } from "@/components/ShareBar";
 
 // One page per tracked coin, written at build time.
 export const dynamicParams = false;
@@ -46,7 +47,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
   // A creator sharing their own coin's page is the cheapest reach Daybreak gets; the text is the
   // page's own numbers, nothing added.
   const pageUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}/coin/${c.address}/`;
-  const shareText = `$${c.symbol} on Daybreak: ${aud.total > 0 ? `${compact(aud.total)} followers, ` : ""}${int(c.holders)} holders.`;
+  const shareText = `$${c.symbol} on Zora: ${int(c.holders)} holders${aud.total > 0 ? ` from ${compact(aud.total)} ${PLATFORM[aud.platform ?? ""] ?? ""} followers` : ""}. Holder churn, trading and the audience gap on Daybreak:`
   return (
     <>
       <section style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", alignItems: "end", justifyContent: "space-between" }}>
@@ -56,11 +57,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
           <p className="kicker">Creator coin</p>
           <h1>${c.symbol}</h1>
           <p className="lede">@{c.handle ?? "unknown"}{c.name && c.name !== c.symbol ? ` · ${c.name}` : ""}</p>
-          <p className="share">Share this page:{" "}
-            <a href={`https://farcaster.xyz/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(pageUrl)}`} target="_blank" rel="noopener noreferrer">Farcaster</a>{" · "}
-            <a href={`https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}`} target="_blank" rel="noopener noreferrer">X</a>{" · "}
-            <a href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${shareText} ${pageUrl}`)}`} target="_blank" rel="noopener noreferrer">Bluesky</a>
-          </p>
+          <ShareBar text={shareText} url={pageUrl} quiet />
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
