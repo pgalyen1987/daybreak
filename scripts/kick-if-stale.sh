@@ -6,7 +6,8 @@
 # minutes old at the next check (a two-hour cycle); at 55, a schedule run landing at :56 was 51
 # minutes old at :47 and skipped the hour. 45 keeps every gap near an hour.
 GH=$(command -v gh || echo /home/me/.local/bin/gh)
-last=$("$GH" run list -R pgalyen1987/daybreak --limit 1 --json createdAt --jq '.[0].createdAt' 2>/dev/null) || exit 0
+# only runs that collect count: a push run just rebuilds the site from the stored data
+last=$("$GH" run list -R pgalyen1987/daybreak --limit 20 --json createdAt,event --jq '[.[] | select(.event != "push")][0].createdAt' 2>/dev/null) || exit 0
 [ -n "$last" ] || exit 0
 age=$(( $(date -u +%s) - $(date -u -d "$last" +%s) ))
 if [ "$age" -gt 2700 ]; then
