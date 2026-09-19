@@ -157,8 +157,11 @@ async function unitPrices(currencies: string[]): Promise<Map<string, number | nu
       const ref = db.prepare(`SELECT c.address FROM coins c JOIN coin_snapshots s ON s.address = c.address
         WHERE s.ts = (SELECT MAX(ts) FROM coin_snapshots) ORDER BY s.market_cap DESC LIMIT 1`).get() as { address: string } | undefined;
       const q = ref ? await coinQuote(ref.address).catch(() => null) : null;
-      const usd = q && q.poolCurrency === ZORA_TOKEN ? zoraUsd(q.usd ?? 0, q.inPool ?? 0) : null;
-      save.run(c, usd, now); out.set(c, usd); continue;
+      const fresh = q && q.poolCurrency === ZORA_TOKEN ? zoraUsd(q.usd ?? 0, q.inPool ?? 0) : null;
+      // a failed lookup falls back to the last price we had (prune keeps a week) rather than $0
+      const usd = fresh ?? (db.prepare("SELECT usd FROM prices WHERE address = ? AND usd IS NOT NULL").get(c) as { usd: number } | undefined)?.usd ?? null;
+      if (fresh != null) save.run(c, fresh, now);
+      out.set(c, usd); continue;
     }
     const t = tracked.get(c) as { usd: number | null } | undefined;
     if (t?.usd) { out.set(c, t.usd); continue; }
