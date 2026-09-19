@@ -11,16 +11,15 @@ export type Earner = { address: string; name: string | null; usd: number; events
 
 export function rewardsSummary(days = 7) {
   const d = open();
-  if (!has("rewards")) return null;
-  const since = Date.now() - days * DAY;
-  const totals = d.prepare(`SELECT COUNT(*) AS n, SUM(unit_usd IS NOT NULL) AS priced,
-      SUM(COALESCE(unit_usd, 0) * creator_amt) AS creator, SUM(COALESCE(unit_usd, 0) * platform_amt) AS platform,
-      SUM(COALESCE(unit_usd, 0) * trade_amt) AS trade, SUM(COALESCE(unit_usd, 0) * protocol_amt) AS protocol,
-      SUM(COALESCE(unit_usd, 0) * doppler_amt) AS doppler, MIN(ts) AS first, MAX(ts) AS last
-    FROM rewards WHERE ts >= ?`).get(since) as Record<string, number | null>;
-  if (!totals.n) return null;
-  const byRole = Object.fromEntries(ROLES.map((r) => [r, Number(totals[r] || 0)])) as Record<Role, number>;
-  const sinceDay = new Date(since).toISOString().slice(0, 10);
+  if (!has("reward_role_daily")) return null;
+  const sinceDay = new Date(Date.now() - days * DAY).toISOString().slice(0, 10);
+  const rows = d.prepare("SELECT role, SUM(usd) AS usd, SUM(events) AS events, SUM(unpriced) AS unpriced FROM reward_role_daily WHERE day >= ? GROUP BY role")
+    .all(sinceDay) as { role: Role; usd: number; events: number; unpriced: number }[];
+  if (!rows.length) return null;
+  const byRole = Object.fromEntries(ROLES.map((r) => [r, Number(rows.find((x) => x.role === r)?.usd || 0)])) as Record<Role, number>;
+  // every payout lands in the per-coin totals (the per-role ones skip shares that round to zero)
+  const c = d.prepare("SELECT SUM(events) AS n, SUM(unpriced) AS unpriced FROM coin_reward_daily WHERE day >= ?").get(sinceDay) as { n: number | null; unpriced: number | null };
+  const payouts = Number(c.n || 0), priced = payouts - Number(c.unpriced || 0);
   // a wallet's name: its Zora handle, else the handle of a tracked coin it created
   // (a wallet without a profile comes back from Zora as its own short address, "0x55c8...2453": not a name)
   const named = d.prepare(`SELECT COALESCE(
@@ -31,25 +30,24 @@ export function rewardsSummary(days = 7) {
   const top = (role: Role, n = 10): Earner[] => (d.prepare(`SELECT recipient AS address, SUM(usd) AS usd, SUM(events) AS events
       FROM reward_daily WHERE day >= ? AND role = ? GROUP BY recipient ORDER BY usd DESC LIMIT ?`).all(sinceDay, role, n) as Omit<Earner, "name">[])
     .map((e) => ({ ...e, zora: e.address === zora, name: (named.get(e.address, e.address) as { name: string | null } | undefined)?.name ?? null }));
-  const daily = (d.prepare(`SELECT day, role, SUM(usd) AS usd FROM reward_daily WHERE day >= ? GROUP BY day, role ORDER BY day`)
-    .all(new Date(Date.now() - 30 * DAY).toISOString().slice(0, 10)) as { day: string; role: Role; usd: number }[]);
-  const days30 = new Map<string, Record<string, number>>();
-  for (const r of daily) days30.set(r.day, { ...(days30.get(r.day) || {}), [r.role]: r.usd });
-  const earliest = (d.prepare("SELECT MIN(day) AS day FROM reward_daily").get() as { day: string | null }).day;
+  const daily = d.prepare("SELECT day, role, usd FROM reward_role_daily WHERE day >= ? ORDER BY day")
+    .all(new Date(Date.now() - 30 * DAY).toISOString().slice(0, 10)) as { day: string; role: Role; usd: number }[];
+  const byDay = new Map<string, Record<string, number>>();
+  for (const r of daily) byDay.set(r.day, { ...(byDay.get(r.day) || {}), [r.role]: r.usd });
+  const earliest = (d.prepare("SELECT MIN(day) AS day FROM reward_role_daily").get() as { day: string | null }).day;
   return {
-    days, payouts: Number(totals.n), priced: Number(totals.priced || 0), byRole,
+    days, payouts, priced, byRole, earliest,
     total: ROLES.reduce((a, r) => a + byRole[r], 0),
-    first: Number(totals.first), last: Number(totals.last), earliest,
     top: { creator: top("creator"), platform: top("platform"), trade: top("trade") },
-    daily: [...days30.entries()].map(([day, values]) => ({ day, values })),
+    daily: [...byDay.entries()].map(([day, values]) => ({ day, values })),
   };
 }
 
 /** What one coin's trades paid its creator over the last `days` days (priced payouts only). */
 export function coinCreatorEarnings(address: string, days = 7) {
-  if (!has("rewards")) return null;
-  const r = open().prepare(`SELECT COUNT(*) AS n, SUM(COALESCE(unit_usd, 0) * creator_amt) AS usd, SUM(unit_usd IS NULL) AS unpriced
-    FROM rewards WHERE coin = ? AND ts >= ?`).get(address, Date.now() - days * DAY) as { n: number; usd: number | null; unpriced: number | null };
+  if (!has("coin_reward_daily")) return null;
+  const r = open().prepare(`SELECT SUM(events) AS n, SUM(creator_usd) AS usd, SUM(unpriced) AS unpriced FROM coin_reward_daily WHERE coin = ? AND day >= ?`)
+    .get(address, new Date(Date.now() - days * DAY).toISOString().slice(0, 10)) as { n: number | null; usd: number | null; unpriced: number | null };
   return r.n ? { payouts: r.n, usd: r.usd || 0, unpriced: r.unpriced || 0 } : null;
 }
 

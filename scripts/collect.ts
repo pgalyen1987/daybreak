@@ -194,6 +194,10 @@ async function rewards() {
       creator_amt, platform_amt, trade_amt, protocol_amt, doppler_amt, unit_usd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const daily = db.prepare(`INSERT INTO reward_daily (day, role, recipient, usd, events, unpriced) VALUES (?, ?, ?, ?, 1, ?)
       ON CONFLICT(day, role, recipient) DO UPDATE SET usd = usd + excluded.usd, events = events + 1, unpriced = unpriced + excluded.unpriced`);
+  const roleDaily = db.prepare(`INSERT INTO reward_role_daily (day, role, usd, events, unpriced) VALUES (?, ?, ?, 1, ?)
+      ON CONFLICT(day, role) DO UPDATE SET usd = usd + excluded.usd, events = events + 1, unpriced = unpriced + excluded.unpriced`);
+  const coinDaily = db.prepare(`INSERT INTO coin_reward_daily (day, coin, creator_usd, events, unpriced) VALUES (?, ?, ?, 1, ?)
+      ON CONFLICT(day, coin) DO UPDATE SET creator_usd = creator_usd + excluded.creator_usd, events = events + 1, unpriced = unpriced + excluded.unpriced`);
   let added = 0;
   db.transaction(() => {
     for (const r of decoded) {
@@ -202,11 +206,14 @@ async function rewards() {
         r.recipients.protocol, r.recipients.doppler, r.amounts.creator, r.amounts.platform, r.amounts.trade, r.amounts.protocol, r.amounts.doppler, unit);
       if (!x.changes) continue; // seen before: already in the daily totals
       added++;
-      const d = new Date(ts).toISOString().slice(0, 10);
+      const d = new Date(ts).toISOString().slice(0, 10), unpriced = unit == null ? 1 : 0;
+      coinDaily.run(d, r.coin, unit == null ? 0 : r.amounts.creator * unit, unpriced);
       for (const role of ROLES) {
         const who = r.recipients[role];
         if (!who || !(r.amounts[role] > 0)) continue;
-        daily.run(d, role, who, unit == null ? 0 : r.amounts[role] * unit, unit == null ? 1 : 0);
+        const usd = unit == null ? 0 : r.amounts[role] * unit;
+        daily.run(d, role, who, usd, unpriced);
+        roleDaily.run(d, role, usd, unpriced);
       }
     }
     db.prepare("INSERT OR REPLACE INTO cursors (name, value) VALUES ('rewards', ?)").run(last);

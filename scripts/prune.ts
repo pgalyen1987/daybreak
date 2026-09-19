@@ -16,9 +16,11 @@ db.prepare("UPDATE swap_coverage SET since = MAX(since, ?)").run(before(30));
 const r4 = db.prepare(`DELETE FROM coin_snapshots WHERE ts < ? AND ts NOT IN (
     SELECT MIN(ts) FROM coin_snapshots WHERE ts < ? GROUP BY address, ts / ${DAY})`).run(before(45), before(45)).changes;
 const r5 = db.prepare("DELETE FROM runs WHERE started < ?").run(before(30)).changes;
-// rewards: raw payouts for 8 days (pages read 7), per-recipient daily totals for a year
-const r6 = db.prepare("DELETE FROM rewards WHERE ts < ?").run(before(8)).changes;
-const r7 = db.prepare("DELETE FROM reward_daily WHERE day < ?").run(dayStr(400)).changes;
+// rewards: raw payouts for a day (the cursor and one transaction already rule out counting one twice), per-wallet and per-coin daily totals
+// for 35 (pages read 7 and 30); the per-role daily totals are tiny and stay
+const r6 = db.prepare("DELETE FROM rewards WHERE ts < ?").run(before(1)).changes;
+const r7 = db.prepare("DELETE FROM reward_daily WHERE day < ?").run(dayStr(35)).changes
+  + db.prepare("DELETE FROM coin_reward_daily WHERE day < ?").run(dayStr(35)).changes;
 db.prepare("DELETE FROM prices WHERE ts < ?").run(before(7));
 // tags: like coin snapshots, hourly for 45 days and one a day before that
 const r8 = db.prepare(`DELETE FROM trend_snapshots WHERE ts < ? AND ts NOT IN (

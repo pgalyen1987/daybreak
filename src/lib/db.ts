@@ -57,7 +57,8 @@ export function migrate(d: Database.Database) {
   const cols = (d.prepare("PRAGMA table_info(coins)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("total_supply")) d.exec("ALTER TABLE coins ADD COLUMN total_supply REAL");
   d.exec("CREATE TABLE IF NOT EXISTS swap_coverage (address TEXT PRIMARY KEY, since INTEGER NOT NULL)");
-  // Trading rewards (lib/rewards.ts): raw payouts for a week, per-recipient daily totals kept longer
+  // Trading rewards (lib/rewards.ts): raw payouts for a day, daily totals per
+  // wallet and per coin for 35, per role for good
   d.exec(`
     CREATE TABLE IF NOT EXISTS rewards (
       tx TEXT NOT NULL, log_index INTEGER NOT NULL, block INTEGER NOT NULL, ts INTEGER NOT NULL,
@@ -73,6 +74,14 @@ export function migrate(d: Database.Database) {
       day TEXT NOT NULL, role TEXT NOT NULL, recipient TEXT NOT NULL,
       usd REAL NOT NULL, events INTEGER NOT NULL, unpriced INTEGER NOT NULL,
       PRIMARY KEY (day, role, recipient)
+    );
+    CREATE TABLE IF NOT EXISTS reward_role_daily (
+      day TEXT NOT NULL, role TEXT NOT NULL, usd REAL NOT NULL, events INTEGER NOT NULL, unpriced INTEGER NOT NULL,
+      PRIMARY KEY (day, role)
+    );
+    CREATE TABLE IF NOT EXISTS coin_reward_daily (
+      day TEXT NOT NULL, coin TEXT NOT NULL, creator_usd REAL NOT NULL, events INTEGER NOT NULL, unpriced INTEGER NOT NULL,
+      PRIMARY KEY (day, coin)
     );
     CREATE TABLE IF NOT EXISTS cursors (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS prices (address TEXT PRIMARY KEY, usd REAL, ts INTEGER NOT NULL);
