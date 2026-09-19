@@ -109,7 +109,7 @@ export function CoinCheck({ medianPer1000, tracked }: { medianPer1000: number; t
                       <a href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${shareText} ${coinLink}`)}`} target="_blank" rel="noopener noreferrer">Bluesky</a>
                     </p>
                   )}
-                  {s.id === "reason" && <p className="share"><a href={KEYCAST} target="_blank" rel="noopener noreferrer">Open Keycast</a></p>}
+                  {s.id === "reason" && <p className="share"><a href={res.coin ? `${KEYCAST}/?coin=${res.coin}` : KEYCAST} target="_blank" rel="noopener noreferrer">Set up a holder perk on Keycast</a></p>}
                 </li>
               ))}
             </ol>
