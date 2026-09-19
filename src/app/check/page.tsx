@@ -27,6 +27,10 @@ export default function CheckPage() {
         </p>
       </section>
       <CoinCheck medianPer1000={median} tracked={coins.map((c) => c.address)} />
+      <p className="note">
+        Where the audience is matters as much as its size: creators whose biggest audience is on Farcaster have a median of 27 holders
+        per 1,000 followers, X-led creators 7. <a href="https://rebelstudiossoftware.com/blog-zora-audiences-that-buy.html">Which audiences actually buy Zora creator coins</a>
+      </p>
     </>
   );
 }
