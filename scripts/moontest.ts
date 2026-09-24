@@ -68,7 +68,8 @@ async function main() {
   }).slice(0, want);
 
   console.log(`${coins.length} coins up >50% in 24h\n`);
-  console.log("symbol           gain%     mcap$   API vol24h$   REAL traded$  swaps  wallets  biggest fill$");
+  // realTrading() sums the coin's WHOLE history, not 24 hours - the earlier header said "24h\n  // real$" and that made a coin with 42 lifetime trades look like a coin doing 42 a day.
+  console.log("symbol           gain%     mcap$   API vol24h$  LIFETIME trd$  swaps  wallets  biggest fill$");
   const rows: any[] = [];
   for (const c of coins) {
     const mc = Number(c.marketCap || 0), d = Number(c.marketCapDelta24h || 0);

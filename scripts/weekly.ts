@@ -42,7 +42,7 @@ console.log(JSON.stringify({
   newCoins,
   trades: week.length,
   volumeUsd: Math.round(week.reduce((a, t) => a + t.usd, 0)),
-  top10Followers: top.reduce((a, r) => a + r.reach, 0),
+  top10Follows: top.reduce((a, r) => a + r.followCount, 0),
   top10Holders: top.reduce((a, r) => a + r.holders, 0),
   busiest: busiest ? { day: DAYS[Number(busiest[0].split("|")[0])], hourUtc: Number(busiest[0].split("|")[1]) } : null,
 }));

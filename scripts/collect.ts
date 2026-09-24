@@ -4,13 +4,17 @@
 //   tsx scripts/collect.ts holders     today's holder set per coin (all holders if small, else the top N)
 //   tsx scripts/collect.ts rewards     every Zora trading-reward payout since the last run, from Base's logs
 //   tsx scripts/collect.ts trends      trend coins (Zora's tags): stats hourly, holder sets of the busiest daily
+//   tsx scripts/collect.ts follows     Farcaster follow counts, walked from the public hub ourselves
 // Environment: DATA_DIR (sqlite location), ZORA_API_KEY (optional, raises rate limits),
 //   PAGES_PER_LIST (default 10 -> up to 200 coins per list), CONCURRENCY (default 3),
-//   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC).
+//   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC),
+//   FOLLOWS_BUDGET_S (seconds the follow-count walk may spend per run; default 480).
 import { open } from "../src/lib/db";
 import { chunks, blockTime, decodeReward, ROLES, USDC, ZORA_TOKEN, MARKET_TOPIC, CREATOR_TOPIC, zoraUsd, type RawLog, type Reward } from "../src/lib/rewards";
 import { coinQuote, holders, pool, profileHandle, profileSocials, recentSwaps, trendUniverse, universe } from "../src/lib/zora";
 import { thumb } from "../src/lib/images";
+import { fidForName, countFollows } from "./hub";
+import { saveFollowCount } from "../src/lib/follows";
 
 const PAGES_PER_LIST = Number(process.env.PAGES_PER_LIST || 10);
 const CONCURRENCY = Number(process.env.CONCURRENCY || 3);
@@ -281,6 +285,42 @@ async function trends() {
   log(`trends: ${list.length} tags, ${busiest.length} holder sets, ${errors} errors`);
 }
 
+// --- follows (Farcaster, counted by us) --------------------------------------------------------
+// Zora carries a follower number on every profile and it is a cache that does not move: 60 fields
+// across 39 creators, unchanged over three days, and 292,097 against the 478,377 follow records
+// the hub actually holds for @jacob. So the site counts for itself. One walk per creator, ~5s for
+// a small account and several minutes for the largest, ordered stalest first and stopped when the
+// run's budget is spent — coverage climbs across the hour instead of one run timing out.
+const FOLLOWS_BUDGET_MS = Number(process.env.FOLLOWS_BUDGET_S || 480) * 1000;
+
+async function followCounts() {
+  const run = startRun("follows");
+  const targets = db.prepare(`
+    SELECT so.handle, so.farcaster_user AS username, f.ts AS measured
+    FROM social_snapshots so
+    LEFT JOIN fc_follows f ON f.handle = so.handle
+    WHERE so.farcaster_user IS NOT NULL
+      AND so.ts = (SELECT MAX(ts) FROM social_snapshots WHERE handle = so.handle)
+    ORDER BY f.ts IS NOT NULL, f.ts ASC`).all() as { handle: string; username: string; measured: number | null }[];
+
+  const deadline = Date.now() + FOLLOWS_BUDGET_MS;
+  let done = 0, errors = 0;
+  for (const t of targets) {
+    if (Date.now() > deadline) break;
+    log(`follows: walking @${t.handle} (fc @${t.username})...`);
+    try {
+      const fid = await fidForName(t.username);
+      if (!fid) { log(`follows: no fid for @${t.username} (${t.handle})`); errors++; continue; }
+      const r = await countFollows(fid);
+      saveFollowCount({ handle: t.handle, fid, username: t.username, follows: r.count, converged: r.converged, pages: r.pages }, db);
+      done++;
+      log(`follows: @${t.handle} (fc @${t.username}, fid ${fid}) ${r.count.toLocaleString()} follows in ${r.pages} pages${r.converged ? "" : " — HIT THE CAP, a floor not a total"}`);
+    } catch (e) { errors++; log(`follows error ${t.handle}`, String(e).slice(0, 120)); }
+  }
+  endRun(run, done, errors, `${targets.length} linked`);
+  log(`follows: measured ${done} of ${targets.length} creators with a linked Farcaster account, ${errors} errors`);
+}
+
 async function main() {
   const mode = process.argv[2] ?? "all";
   const t0 = Date.now();
@@ -289,6 +329,7 @@ async function main() {
   if (mode === "holders" || mode === "all") await holderSets();
   if (mode === "rewards" || mode === "all") await rewards();
   if (mode === "trends" || mode === "all") await trends();
+  if (mode === "follows" || mode === "all") await followCounts();
   log(`done in ${Math.round((Date.now() - t0) / 1000)}s`);
 }
 

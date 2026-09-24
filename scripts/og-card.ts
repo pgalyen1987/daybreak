@@ -15,7 +15,7 @@ const Y = (v: number) => 10 + ((H - B - 10) * (y1 - Math.log10(Math.max(v, 10)))
 const top = new Set(rows.slice(0, 10).map((r) => r.address));
 const dots = [...rows].sort((a, b) => Number(top.has(a.address)) - Number(top.has(b.address))).map((r) => {
   const hot = top.has(r.address);
-  return `<circle cx="${X(r.reach).toFixed(1)}" cy="${Y(r.holders).toFixed(1)}" r="${hot ? 7.5 : 5}" fill="${hot ? "#6f86ff" : "#5a5a66"}" fill-opacity="${hot ? 1 : 0.8}" stroke="#131316" stroke-width="2"/>`;
+  return `<circle cx="${X(r.followCount).toFixed(1)}" cy="${Y(r.holders).toFixed(1)}" r="${hot ? 7.5 : 5}" fill="${hot ? "#6f86ff" : "#5a5a66"}" fill-opacity="${hot ? 1 : 0.8}" stroke="#131316" stroke-width="2"/>`;
 }).join("");
 const diag = [0.01, 0.001, 0.0001].map((rate) => {
   const a = 10 ** x0, b = 10 ** x1;
@@ -25,7 +25,9 @@ const diag = [0.01, 0.001, 0.0001].map((rate) => {
 console.log(`<!doctype html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;width:1200px;height:${PAGE_H}px;background:#0b0b0c;color:#f4f4f5;font-family:Geist,sans-serif}
+  /* position:relative so the footer is placed against the card, not the browser window: without
+     it a render at any viewport taller than the card drops the URL off the bottom. */
+  html,body{margin:0;position:relative;width:1200px;height:${PAGE_H}px;overflow:hidden;background:#0b0b0c;color:#f4f4f5;font-family:Geist,sans-serif}
   .wrap{display:grid;grid-template-columns:540px 1fr;height:100%;padding:56px 56px ${EMBED ? 88 : 48}px;box-sizing:border-box;gap:28px;align-items:${EMBED ? "center" : "stretch"}}
   .brand{display:flex;align-items:center;gap:12px;font:600 30px/1 Geist,sans-serif;letter-spacing:-.03em}
   h1{font:600 52px/1.04 Geist,sans-serif;margin:40px 0 18px;letter-spacing:-.045em}
@@ -38,8 +40,8 @@ console.log(`<!doctype html><html><head><meta charset="utf-8">
   <div>
     <div class="brand"><svg width="36" height="36" viewBox="0 0 24 24"><defs><radialGradient id="o" cx="38%" cy="42%" r="78%"><stop offset="0" stop-color="#fff1d6"/><stop offset=".38" stop-color="#ff9d6e"/><stop offset=".68" stop-color="#f25ca8"/><stop offset="1" stop-color="#3b5bff"/></radialGradient><clipPath id="s"><rect width="24" height="17.2"/></clipPath></defs><circle cx="12" cy="15.5" r="9.5" fill="url(#o)" clip-path="url(#s)"/><rect x="1.5" y="18.6" width="21" height="2.2" rx="1.1" fill="#f4f4f5"/></svg>Daybreak</div>
     <h1>Whose audience hasn't found their coin yet</h1>
-    <p>Free analytics for Zora creator coins: the follower-to-holder gap, holder churn and trading patterns.</p>
-    <div class="facts"><div><b>${s.coins.toLocaleString("en-US")}</b>coins tracked</div><div><b>hourly</b>from Zora's data</div></div>
+    <p>Free analytics for Zora creator coins: Farcaster follows against coin holders, counted from the hub, plus holder churn and trading.</p>
+    <div class="facts"><div><b>${s.coins.toLocaleString("en-US")}</b>coins tracked</div><div><b>${rows.length}</b>creators counted</div></div>
   </div>
   <div class="map"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${diag}${dots}</svg></div>
 </div><div class="foot">daybreak.rebelstudiossoftware.com</div></body></html>`);

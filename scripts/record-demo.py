@@ -43,12 +43,12 @@ with sync_playwright() as p:
     cap(page, "Daybreak: free analytics for Zora creator coins, rebuilt every hour from Zora and Base")
     page.wait_for_timeout(3200)
     smooth_scroll(page, 330)
-    cap(page, "The gap map: every creator's followers against their coin's holders")
+    cap(page, "The gap map: Farcaster follows, counted from the hub, against coin holders")
     page.wait_for_timeout(1800)
     faces = page.locator("g.apt")
     if faces.count():
         faces.nth(0).hover(); page.wait_for_timeout(700)
-        cap(page, "Big audience, few holders: fans who haven't found the coin yet")
+        cap(page, "Many follows, few holders: an audience that hasn't found the coin yet")
         faces.nth(min(3, faces.count() - 1)).hover(); page.wait_for_timeout(2600)
 
     # 2. check any creator
