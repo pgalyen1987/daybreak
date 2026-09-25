@@ -8,6 +8,8 @@ import { MIN_RANKED } from "@/lib/metrics";
 import { Ago } from "@/components/Ago";
 import { allCoins, coinByAddress, coinTrades, holderChurn, holderSeries, leads, per1000, topHolderShare } from "@/lib/queries";
 import { coinCreatorEarnings } from "@/lib/zora-queries";
+import { coinDay } from "@/lib/today";
+import { Scoreboard } from "@/components/Scoreboard";
 import { CoinAvatar } from "@/components/CoinAvatar";
 import { ShareBar } from "@/components/ShareBar";
 
@@ -48,6 +50,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
   const conc = topHolderShare(c.address);
   const series = holderSeries(c.address);
   const earned = coinCreatorEarnings(c.address, 7);
+  const day = coinDay(c.address);
   const quiet = p.totalUsd < 1; // a chart of cents is noise: say so instead
   const linked = Object.entries(c.socialUsers).filter(([, v]) => v) as [string, string][];
   // A creator sharing their own coin's page is the cheapest reach Daybreak gets; the text is the
@@ -71,6 +74,8 @@ export default function CoinPage({ params }: { params: { address: string } }) {
           <Link className="btn ghost" href="/leaderboard">Leaderboard</Link>
         </div>
       </section>
+
+      <Scoreboard day={day} symbol={c.symbol} />
 
       <section className="panel">
         <div className="facts">
