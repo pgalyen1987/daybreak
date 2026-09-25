@@ -4,6 +4,8 @@
 # The SQLite file lives as an asset on the "data" release (not in git history, which would
 # grow by megabytes an hour). Holder sets are fetched once a day per coin: `collect holders` skips
 # coins already done today and takes at most 60 per run, so the day's first runs share the work.
+# The follower diffs work the same way: the Farcaster identity index is topped up by a budget each
+# run rather than crawled whole, because one large account is hundreds of thousands of lookups.
 name: Daybreak
 
 on:
@@ -58,6 +60,36 @@ jobs:
           # the newer pages' steps can't hold the hourly data hostage: a failure warns, the rest ships
           npx tsx scripts/collect.ts rewards || echo "::warning::rewards collection failed this run"
           npx tsx scripts/collect.ts trends || echo "::warning::trends collection failed this run"
+
+      # Farcaster follow counts, walked from the public hub. This is the number the gap map, the
+      # leaderboard and the check page are built on, and the only follower figure the site quotes:
+      # Zora's own follower counts are a cache that does not move (60 fields across 39 creators,
+      # unchanged three days apart) and were out by 1.6x where they could be checked. A walk is
+      # seconds for a small account and minutes for a large one, so each run spends a fixed budget
+      # stalest-first and coverage climbs; a creator not yet counted is left off the board.
+      - name: Follow counts
+        if: github.event_name != 'push'
+        env:
+          FOLLOWS_BUDGET_S: "480"
+        run: npx tsx scripts/collect.ts follows || echo "::warning::follow counts failed this run"
+
+      - name: Follower diffs
+        if: github.event_name != 'push'
+        env:
+          ZORA_API_KEY: ${{ secrets.ZORA_API_KEY }}
+        # Who follows each creator and does not hold their coin. The fid -> wallet index in the
+        # database is shared by every creator and never re-asked, so each run tops it up by
+        # AUDIENCE_BUDGET fids and coverage climbs; run one does not have to finish the job.
+        #
+        # WATCH THE DATABASE SIZE. That index has no ceiling and this file is downloaded and
+        # uploaded every run. Measured at 296 bytes per fid: AUDIENCE_BUDGET=20000 is ~142 MB a
+        # day and ~1 GB a week. Until the index is capped, keep the budget low and check the size
+        # of the `data` release asset before raising it.
+        run: |
+          for h in $(npx tsx scripts/audience-targets.ts "${AUDIENCE_CREATORS:-4}"); do
+            npx tsx scripts/audience.ts "$h" --budget "${AUDIENCE_BUDGET:-20000}" \
+              || echo "::warning::follower diff for $h failed this run"
+          done
 
       - name: Prune
         run: npx tsx scripts/prune.ts

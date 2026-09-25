@@ -85,9 +85,9 @@ table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .score { font-weight: 600; color: var(--gap); }
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 13.5px; color: var(--muted); }
-.filters a { padding: 6px 13px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--card); font-weight: 500; }
-.filters a:hover { text-decoration: none; background: var(--faint); }
-.filters a[aria-current="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.filters a, .filters button { padding: 6px 13px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--card); font: 500 13.5px var(--font-text), system-ui, sans-serif; cursor: pointer; }
+.filters a:hover, .filters button:hover { text-decoration: none; background: var(--faint); }
+.filters a[aria-current="true"], .filters button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 
 .chart { width: 100%; height: auto; display: block; }
 .scrollx { overflow-x: auto; }
@@ -141,9 +141,9 @@ table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
   .panel { padding: 14px; }
   .home-gaps .plat { display: none; }
   /* Tables fit the phone instead of scrolling sideways: the leaderboard keeps rank, creator,
-     score, audience and holders (the rest is on the coin page), and names give way first. */
+     score, follows and holders (the rest is on the coin page), and names give way first. */
   table.sheet { min-width: 0; }
-  .sheet .c-conversion, .sheet .c-untapped, .sheet .c-marketCap, .sheet .plat, .who span { display: none; }
+  .sheet .c-per1000, .sheet .c-marketCap, .sheet .plat, .who span { display: none; }
   .who b { display: inline-block; max-width: 24vw; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
   .who { gap: 7px; }
   .sheet .who .avatar { width: 22px; height: 22px; border-radius: 7px; }
@@ -152,4 +152,45 @@ table.sheet { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
   .sheet th { white-space: normal; letter-spacing: 0; }
   .sheet .rank { width: 22px; }
 }
-@media (prefers-reduced-motion: no-preference) { .btn, .nav a, .filters a, .sheet td { transition: opacity .15s, background-color .15s; } }
+/* ── The worklist ───────────────────────────────────────────────────────────────────────────
+   A queue of people, not a table of rows: each entry carries its own evidence and its one
+   action, and the draft opens underneath the person it belongs to. */
+.worklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.prospect { display: grid; grid-template-columns: 28px 40px 1fr auto auto; align-items: center; gap: 14px; padding: 14px 16px; background: var(--card); }
+.prospect:hover { background: var(--faint); }
+.prospect-rank { color: var(--muted); font-size: 13px; text-align: right; }
+.prospect-who { min-width: 0; display: grid; gap: 5px; }
+.prospect-who b { font-weight: 600; }
+.prospect-name { color: var(--muted); font-size: 13px; margin-left: 8px; font-weight: 400; }
+.chips { list-style: none; display: flex; flex-wrap: wrap; gap: 5px 6px; margin: 0; padding: 0; }
+.chips li { font-size: 12px; color: var(--muted); background: var(--faint); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; }
+.prospect-score { display: grid; gap: 5px; justify-items: end; width: 72px; }
+.prospect-score b { font-weight: 600; font-size: 15px; color: var(--gap); }
+.prospect-score i { display: block; width: 100%; height: 4px; border-radius: 999px; background: var(--faint); overflow: hidden; }
+.prospect-score i span { display: block; height: 100%; background: var(--gap); }
+.draft { grid-column: 1 / -1; display: grid; gap: 10px; padding: 14px; margin-top: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--faint); }
+.draft-text { margin: 0; font-size: 14.5px; line-height: 1.5; }
+.draft-do { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.sr-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.cover-bar { display: block; height: 6px; border-radius: 999px; background: var(--faint); overflow: hidden; }
+.cover-bar i { display: block; height: 100%; background: var(--gap); }
+.why summary { cursor: pointer; font-size: 13.5px; font-weight: 500; }
+.why summary::marker { color: var(--accent); }
+.why p { margin-top: 8px; }
+.signals { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.signals li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.signals li:last-child { border-bottom: 0; padding-bottom: 0; }
+.signals b { font-weight: 600; font-size: 14.5px; }
+.signals span { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.signals p { grid-column: 1 / -1; }
+.audience-index { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.audience-index li { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.audience-index li:last-child { border-bottom: 0; }
+.audience-index li .note { grid-column: 1 / -1; }
+@media (max-width: 720px) {
+  .prospect { grid-template-columns: 22px 34px 1fr auto; gap: 10px; padding: 12px; }
+  .prospect-score { grid-column: 2 / 4; width: auto; justify-items: start; }
+  .prospect-score i { width: 84px; }
+  .audience-index li { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) { .btn, .nav a, .filters a, .filters button, .sheet td { transition: opacity .15s, background-color .15s; } }

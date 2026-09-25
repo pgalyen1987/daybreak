@@ -3,12 +3,12 @@
 import { compact, int, usd } from "@/lib/format";
 import { thumb } from "@/lib/images";
 
-type Pt = { key: string; label: string; reach: number; holders: number; score: number; hot: boolean; image?: string | null };
+type Pt = { key: string; label: string; follows: number; holders: number; score: number; hot: boolean; image?: string | null };
 
-/** Every creator as a dot: followers across, holders up, both log scales, with conversion diagonals. */
+/** Every creator as a dot: Farcaster follows across, holders up, both log scales, with rate diagonals. */
 export function GapMap({ points, labelKeys }: { points: Pt[]; labelKeys: string[] }) {
   const W = 900, H = 420, L = 74, R = 76, T = 12, B = 40;
-  const xs = points.map((p) => p.reach), ys = points.map((p) => p.holders);
+  const xs = points.map((p) => p.follows), ys = points.map((p) => p.holders);
   const x0 = 3, x1 = Math.max(6, Math.ceil(Math.log10(Math.max(...xs, 1e6)) * 10) / 10);
   const y0 = 1, y1 = Math.max(4, Math.ceil(Math.log10(Math.max(...ys, 1e4))));
   const X = (v: number) => L + ((W - L - R) * (Math.log10(v) - x0)) / (x1 - x0);
@@ -16,7 +16,7 @@ export function GapMap({ points, labelKeys }: { points: Pt[]; labelKeys: string[
   const ordered = [...points].sort((a, b) => Number(a.hot) - Number(b.hot)); // highlighted dots on top
   const byKey = new Map(points.map((p) => [p.key, p]));
   return (
-    <svg className="chart map" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Creators plotted by followers and coin holders on log scales">
+    <svg className="chart map" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Creators plotted by Farcaster follows and coin holders on log scales">
       <defs><clipPath id="gm-clip"><rect x={L} y={T} width={W - L - R} height={H - T - B} /></clipPath></defs>
       {Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i).map((e) => (
         <g key={`y${e}`}>
@@ -30,7 +30,7 @@ export function GapMap({ points, labelKeys }: { points: Pt[]; labelKeys: string[
           <text x={X(10 ** e)} y={H - B + 16} textAnchor="middle">{compact(10 ** e)}</text>
         </g>
       ))}
-      <text x={(L + W - R) / 2} y={H - 4} textAnchor="middle">Followers (largest linked account)</text>
+      <text x={(L + W - R) / 2} y={H - 4} textAnchor="middle">Farcaster follows (counted from the hub)</text>
       <text className="ytitle" x={14} y={(T + H - B) / 2} textAnchor="middle" transform={`rotate(-90 14 ${(T + H - B) / 2})`}>Holders</text>
       {([[0.01, "10 per 1k"], [0.001, "1 per 1k"], [0.0001, "0.1 per 1k"]] as const).map(([rate, label]) => {
         const xa = 10 ** x0, xb = 10 ** x1, yEnd = Y(xb * rate);
@@ -42,7 +42,7 @@ export function GapMap({ points, labelKeys }: { points: Pt[]; labelKeys: string[
         );
       })}
       {ordered.map((p, i) => {
-        const cx = X(p.reach), cy = Y(Math.max(p.holders, 10 ** y0)), tip = `${p.label}  ${compact(p.reach)} followers · ${int(p.holders)} holders · score ${p.score}`;
+        const cx = X(p.follows), cy = Y(Math.max(p.holders, 10 ** y0)), tip = `${p.label}  ${compact(p.follows)} Farcaster follows · ${int(p.holders)} holders · score ${p.score}`;
         const img = p.hot ? thumb(p.image, 24) : null;
         // the largest gaps show the creator's face, ringed in the accent; phones fall back to the dot
         if (img) return (
@@ -63,8 +63,8 @@ export function GapMap({ points, labelKeys }: { points: Pt[]; labelKeys: string[
         if (!p) return null;
         // first spot (right, left, above, below) that covers no other highlighted face and stays
         // clear of the diagonal labels on the right edge; no spot, no label (the tooltip still has it)
-        const cx = X(p.reach), cy = Y(Math.max(p.holders, 10 ** y0)), w = p.label.length * 6.8, h = 14;
-        const faces = points.filter((q) => q.hot && q.key !== k).map((q) => [X(q.reach), Y(Math.max(q.holders, 10 ** y0))]);
+        const cx = X(p.follows), cy = Y(Math.max(p.holders, 10 ** y0)), w = p.label.length * 6.8, h = 14;
+        const faces = points.filter((q) => q.hot && q.key !== k).map((q) => [X(q.follows), Y(Math.max(q.holders, 10 ** y0))]);
         const spots = [
           { x: cx + 17, y: cy + 4, a: "start" as const, box: [cx + 17, cy - 8, cx + 17 + w, cy + 6] },
           { x: cx - 17, y: cy + 4, a: "end" as const, box: [cx - 17 - w, cy - 8, cx - 17, cy + 6] },

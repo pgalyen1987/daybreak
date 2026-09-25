@@ -1,22 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { churn, conversion, gapScores, percentileRank, reach, volumePatterns } from "@/lib/metrics";
+import { churn, gapScores, per1000, percentileRank, volumePatterns } from "@/lib/metrics";
 import { usd } from "@/lib/format";
 
-describe("reach", () => {
-  it("takes the largest single audience, not the sum", () => {
-    expect(reach({ twitter: 356_595, farcaster: 385_658 })).toEqual({ total: 385_658, platform: "farcaster" });
+describe("per1000", () => {
+  it("is holders per thousand Farcaster follows", () => {
+    // @jacob on 2026-09-21: 6,131 holders against the 478,377 follow records the hub holds
+    expect(per1000(6_131, 478_377)).toBeCloseTo(12.82, 2);
   });
-  it("is zero with no linked accounts", () => {
-    expect(reach({})).toEqual({ total: 0, platform: null });
-  });
-});
-
-describe("conversion", () => {
-  it("is holders per follower", () => {
-    expect(conversion(20_442, 1_915_619)).toBeCloseTo(0.01067, 4);
-  });
-  it("is null without an audience", () => {
-    expect(conversion(10, 0)).toBeNull();
+  it("is null without a count", () => {
+    expect(per1000(10, 0)).toBeNull();
   });
 });
 
@@ -31,38 +23,38 @@ describe("percentileRank", () => {
 
 describe("gapScores", () => {
   const rows = [
-    { id: "big-audience-few-holders", holders: 500, socials: { twitter: 1_000_000 } }, // 0.05%
-    { id: "big-audience-many-holders", holders: 200_000, socials: { twitter: 1_000_000 } }, // 20%
-    { id: "small-audience", holders: 100, socials: { twitter: 50_000 } }, // 0.2%
-    { id: "too-small", holders: 1, socials: { farcaster: 300 } }, // under MIN_REACH
-    { id: "no-socials", holders: 900, socials: {} },
+    { id: "big-audience-few-holders", holders: 500, follows: 1_000_000 },   // 0.5 per 1k
+    { id: "big-audience-many-holders", holders: 200_000, follows: 1_000_000 }, // 200 per 1k
+    { id: "small-audience", holders: 100, follows: 50_000 },                // 2 per 1k
+    { id: "too-small", holders: 1, follows: 300 },                          // under MIN_FOLLOWS
+    { id: "never-counted", holders: 900, follows: 0 },
   ];
   const out = gapScores(rows);
-  it("drops creators without a meaningful audience", () => {
+  it("drops creators without a meaningful count", () => {
     expect(out.map((r) => r.id)).not.toContain("too-small");
-    expect(out.map((r) => r.id)).not.toContain("no-socials");
+    expect(out.map((r) => r.id)).not.toContain("never-counted");
   });
-  it("ranks a large audience with low conversion first", () => {
+  it("ranks a large audience with a low rate first", () => {
     expect(out[0].id).toBe("big-audience-few-holders");
     expect(out.at(-1)!.id).toBe("big-audience-many-holders");
   });
-  it("at equal conversion, the bigger audience scores higher", () => {
+  it("at an equal rate, the bigger audience scores higher", () => {
     const eq = gapScores([
-      { id: "a", holders: 10, socials: { twitter: 10_000 } },
-      { id: "b", holders: 1_000, socials: { twitter: 1_000_000 } },
-      { id: "c", holders: 900, socials: { twitter: 10_000 } },
+      { id: "a", holders: 10, follows: 10_000 },
+      { id: "b", holders: 1_000, follows: 1_000_000 },
+      { id: "c", holders: 900, follows: 10_000 },
     ]);
     const a = eq.find((r) => r.id === "a")!, b = eq.find((r) => r.id === "b")!;
-    expect(a.conversion).toBe(b.conversion);
+    expect(a.per1000).toBe(b.per1000);
     expect(b.score).toBeGreaterThan(a.score);
   });
-  it("ranks a lower conversion above a higher one at the same size", () => {
+  it("ranks a lower rate above a higher one at the same size", () => {
     const small = out.find((r) => r.id === "small-audience")!;
     const many = out.find((r) => r.id === "big-audience-many-holders")!;
     expect(small.score).toBeGreaterThan(many.score);
   });
-  it("reports the untapped audience", () => {
-    expect(out[0].untapped).toBe(999_500);
+  it("does not report followers minus holders: they are not the same set", () => {
+    expect(out[0]).not.toHaveProperty("untapped");
   });
   it("keeps scores in 0..100", () => {
     for (const r of out) { expect(r.score).toBeGreaterThanOrEqual(0); expect(r.score).toBeLessThanOrEqual(100); }

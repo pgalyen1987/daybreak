@@ -1,56 +1,79 @@
 // Read-side queries for the pages. Everything is computed from the collector's tables at request
 // time; SQLite is fast enough for a few hundred coins and keeps one source of truth.
 import { open } from "./db";
-import { churn, gapScores, reach, volumePatterns, type Socials, type Swap } from "./metrics";
+import { churn, gapScores, per1000, volumePatterns, type Swap } from "./metrics";
+import { allFollowCounts, type FollowCount } from "./follows";
 
 export const MIN_HOLDERS = 10; // coins below this are too thin to call a lead
 
 export type CoinRow = {
   address: string; symbol: string; name: string; handle: string | null; holders: number;
   marketCap: number; volume24h: number; mcapDelta24h: number; priceUsd: number | null; ts: number; image: string | null;
-  socials: Socials; socialUsers: Record<string, string | null>;
+  /**
+   * Which accounts the creator has linked on Zora, by handle. The follower *counts* Zora serves
+   * alongside these are deliberately not read: they are a cache that does not move (60 fields
+   * across 39 creators unchanged over three days) and on the one platform where a second source
+   * exists they were out by 1.6x. A linked handle is a fact; Zora's count is not one.
+   */
+  socialUsers: Record<string, string | null>;
+  /** The Farcaster follow count Daybreak walked the hub for, or null if we have not measured it. */
+  follows: FollowCount | null;
 };
 
+// No follower counts here on purpose. The collector still records what Zora says in
+// social_snapshots, because that record is the evidence the numbers do not move — but nothing on
+// the read side may reach for them, so they are not selected and there is no field to reach for.
 type Raw = {
   address: string; symbol: string; name: string; image: string | null; handle: string | null; holders: number; market_cap: number;
   volume_24h: number; mcap_delta_24h: number; price_usd: number | null; ts: number;
-  twitter: number | null; farcaster: number | null; instagram: number | null; tiktok: number | null;
   twitter_user: string | null; farcaster_user: string | null; instagram_user: string | null; tiktok_user: string | null;
 };
 
 const LATEST = `
   SELECT c.address, c.symbol, c.name, CASE WHEN c.image_ok = 0 THEN NULL ELSE c.image END AS image, c.creator_handle AS handle, s.holders, s.market_cap, s.volume_24h, s.mcap_delta_24h, s.price_usd, s.ts,
-         so.twitter, so.farcaster, so.instagram, so.tiktok, so.twitter_user, so.farcaster_user, so.instagram_user, so.tiktok_user
+         so.twitter_user, so.farcaster_user, so.instagram_user, so.tiktok_user
   FROM coins c
   JOIN coin_snapshots s ON s.address = c.address AND s.ts = (SELECT MAX(ts) FROM coin_snapshots WHERE address = c.address)
   LEFT JOIN social_snapshots so ON so.handle = c.creator_handle AND so.ts = (SELECT MAX(ts) FROM social_snapshots WHERE handle = c.creator_handle)`;
 
-function toRow(r: Raw): CoinRow {
+function toRow(r: Raw, follows: Map<string, FollowCount>): CoinRow {
   return {
     address: r.address, symbol: r.symbol, name: r.name, image: r.image, handle: r.handle, holders: r.holders,
     marketCap: r.market_cap, volume24h: r.volume_24h, mcapDelta24h: r.mcap_delta_24h, priceUsd: r.price_usd, ts: r.ts,
-    socials: { twitter: r.twitter, farcaster: r.farcaster, instagram: r.instagram, tiktok: r.tiktok },
     socialUsers: { twitter: r.twitter_user, farcaster: r.farcaster_user, instagram: r.instagram_user, tiktok: r.tiktok_user },
+    follows: (r.handle && follows.get(r.handle)) || null,
   };
 }
 
 export function allCoins(): CoinRow[] {
-  return (open().prepare(LATEST).all() as Raw[]).map(toRow);
+  const f = allFollowCounts();
+  return (open().prepare(LATEST).all() as Raw[]).map((r) => toRow(r, f));
 }
 
 export function coinByAddress(address: string): CoinRow | null {
   const r = open().prepare(`${LATEST} WHERE c.address = ?`).get(address.toLowerCase()) as Raw | undefined;
-  return r ? toRow(r) : null;
+  return r ? toRow(r, allFollowCounts()) : null;
 }
 
-export type Lead = CoinRow & { reach: number; platform: string | null; conversion: number; untapped: number; score: number };
+export type Lead = CoinRow & { follows: FollowCount; followCount: number; per1000: number; score: number };
 
-/** The gap leaderboard: every coin with a linked audience and at least MIN_HOLDERS holders, best leads first. */
+/**
+ * The gap leaderboard: coins with at least MIN_HOLDERS holders whose creator's Farcaster follow
+ * count we have counted ourselves, best leads first.
+ *
+ * A creator we have not measured is left out rather than ranked on Zora's cached number. That
+ * makes the board shorter and honest instead of longer and wrong, and the pages say how many
+ * creators have been measured so far.
+ *
+ * A walk that hit its page cap is left out too. Its count is a floor, so holders-per-1,000 off it
+ * is an upper bound — ranking creators on upper bounds mixed with real totals would put the ones
+ * we failed to finish counting at the top of a list about who has the biggest gap.
+ */
 export function leads(minHolders = MIN_HOLDERS): Lead[] {
-  const coins = allCoins().filter((c) => c.holders >= minHolders);
+  const coins = allCoins().filter((c) => c.holders >= minHolders && c.follows?.converged);
   const byId = new Map(coins.map((c) => [c.address, c]));
-  return gapScores(coins.map((c) => ({ id: c.address, holders: c.holders, socials: c.socials })))
-    .map((g) => ({ ...byId.get(g.id)!, reach: g.reach, platform: g.platform, conversion: g.conversion, untapped: g.untapped, score: g.score }));
+  return gapScores(coins.map((c) => ({ id: c.address, holders: c.holders, follows: c.follows!.follows })))
+    .map((g) => { const c = byId.get(g.id)!; return { ...c, follows: c.follows!, followCount: g.follows, per1000: g.per1000, score: g.score }; });
 }
 
 export function stats() {
@@ -116,4 +139,4 @@ export function topHolderShare(address: string) {
   return { day: meta.day, top10Share: top10 / supply, poolShare: pool / supply, holdersCaptured: bal.length, holdersTotal: meta.total };
 }
 
-export { reach };
+export { per1000 };

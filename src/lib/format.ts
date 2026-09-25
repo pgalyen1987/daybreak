@@ -15,3 +15,5 @@ export const ago = (ts: number) => {
   return m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
 };
 export const zoraUrl = (address: string) => `https://zora.co/coin/base:${address}`;
+/** "1 person" / "2 people" — a count that reads as a sentence rather than a field. */
+export const plural = (n: number, one: string, many = `${one}s`) => `${int(n)} ${n === 1 ? one : many}`;

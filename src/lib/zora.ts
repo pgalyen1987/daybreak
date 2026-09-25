@@ -129,6 +129,18 @@ export type SocialCounts = {
   handles: Record<string, string | null>;
 };
 
+/**
+ * A creator's linked accounts on Zora: the handles, and the follower counts Zora serves beside
+ * them.
+ *
+ * **Nothing on the site may display those counts.** They are recorded so that the claim we make
+ * about them stays checkable — they do not move. On 2026-09-21 we compared 60 of these fields
+ * across 39 tracked creators with the values Zora served three days earlier and not one had
+ * changed, on accounts from 46 followers to 1.9M; against a count we took ourselves they were out
+ * by anything from 1.06x to 11.6x, with no way to tell which from the outside. The handles are
+ * what the collector actually needs: `farcaster` names the account whose follows we go and count
+ * for ourselves (scripts/collect.ts follows). See src/lib/follows.ts.
+ */
 export async function profileSocials(handle: string): Promise<SocialCounts | null> {
   const r: any = await withRetry(() => getProfile({ identifier: handle }) as any, `profile ${handle}`);
   const s = r.data?.profile?.socialAccounts;

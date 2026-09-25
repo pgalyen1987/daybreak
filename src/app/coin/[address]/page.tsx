@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { FlowBars, Heatmap, HolderLine } from "@/components/charts";
 import { miniappMeta } from "@/lib/embed";
 import { compact, int, pct, PLATFORM, usd, zoraUrl } from "@/lib/format";
-import { allCoins, coinByAddress, coinTrades, holderChurn, holderSeries, leads, reach, topHolderShare } from "@/lib/queries";
+import { MIN_RANKED } from "@/lib/metrics";
+import { Ago } from "@/components/Ago";
+import { allCoins, coinByAddress, coinTrades, holderChurn, holderSeries, leads, per1000, topHolderShare } from "@/lib/queries";
 import { coinCreatorEarnings } from "@/lib/zora-queries";
 import { CoinAvatar } from "@/components/CoinAvatar";
 import { ShareBar } from "@/components/ShareBar";
@@ -34,8 +36,12 @@ export function generateMetadata({ params }: { params: { address: string } }): M
 export default function CoinPage({ params }: { params: { address: string } }) {
   const c = coinByAddress(params.address);
   if (!c) notFound();
-  const lead = leads(1).find((l) => l.address === c.address);
-  const aud = reach(c.socials);
+  const board = leads(1);
+  const lead = board.find((l) => l.address === c.address);
+  const ranked = board.length >= MIN_RANKED;
+  // No rate off a floor: a capped walk gives an 'at least' follow count, and dividing by it
+  // would print an upper bound as a measurement.
+  const rate = c.follows?.converged ? per1000(c.holders, c.follows.follows) : null;
   const t = coinTrades(c.address, 7);
   const p = t.patterns;
   const churn = holderChurn(c.address);
@@ -43,11 +49,11 @@ export default function CoinPage({ params }: { params: { address: string } }) {
   const series = holderSeries(c.address);
   const earned = coinCreatorEarnings(c.address, 7);
   const quiet = p.totalUsd < 1; // a chart of cents is noise: say so instead
-  const socials = Object.entries(c.socials).filter(([, v]) => v != null && v > 0) as [string, number][];
+  const linked = Object.entries(c.socialUsers).filter(([, v]) => v) as [string, string][];
   // A creator sharing their own coin's page is the cheapest reach Daybreak gets; the text is the
   // page's own numbers, nothing added.
   const pageUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}/coin/${c.address}/`;
-  const shareText = `$${c.symbol} on Zora: ${int(c.holders)} holders${aud.total > 0 ? ` from ${compact(aud.total)} ${PLATFORM[aud.platform ?? ""] ?? ""} followers` : ""}. Holder churn, trading and the audience gap on Daybreak:`
+  const shareText = `$${c.symbol} on Zora: ${int(c.holders)} holders${c.follows ? ` from ${compact(c.follows.follows)} Farcaster follows` : ""}. Holder churn, trading and the audience gap on Daybreak:`
   return (
     <>
       <section style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", alignItems: "end", justifyContent: "space-between" }}>
@@ -73,22 +79,40 @@ export default function CoinPage({ params }: { params: { address: string } }) {
           <div><b>{usd(p.totalUsd)}</b>volume, 7 days</div>
           <div><b>{int(p.traders)}</b>traders, 7 days</div>
           {earned && <div><b>{usd(earned.usd)}</b><Link href="/rewards">paid to the creator</Link>, {earned.since ? `since ${new Date(earned.since + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}` : "7 days"}</div>}
-          {lead && <div><b style={{ color: "var(--gap)" }}>{lead.score}</b>gap score</div>}
+          {lead && ranked && <div><b style={{ color: "var(--gap)" }}>{lead.score}</b>gap score</div>}
         </div>
       </section>
 
       <section className="split">
         <div className="panel">
           <h2>Audience and holders</h2>
-          {aud.total > 0 ? (
+          {c.follows && rate !== null ? (
             <>
               <div className="facts">
-                <div><b>{compact(aud.total)}</b>followers on {PLATFORM[aud.platform ?? ""]}</div>
-                <div><b>{((c.holders / aud.total) * 1000).toFixed(2)}</b>holders per 1,000 followers</div>
-                <div><b>{compact(Math.max(0, aud.total - c.holders))}</b>not yet holding</div>
+                <div><b>{compact(c.follows.follows)}</b>Farcaster follows</div>
+                <div><b>{rate.toFixed(2)}</b>holders per 1,000 follows</div>
               </div>
-              <p className="note">Linked accounts: {socials.map(([k, v]) => `${PLATFORM[k]} ${compact(v)}`).join(" · ")}. Audience uses the largest one, since followers overlap.</p>
+              <p className="note">
+                Follows are signed, unrevoked follow records for <a href={`https://farcaster.xyz/${c.follows.username}`} target="_blank" rel="noopener noreferrer">@{c.follows.username}</a>,
+                counted by walking the public hub <Ago ts={c.follows.ts} />. It is a ceiling: dormant accounts are in it, and Farcaster&apos;s own client shows a
+                smaller, filtered number. We do not subtract holders from it — holders are not a subset of followers, so the difference would count nothing real.
+                {" "}<Link href="/audience/">The follower diff</Link> is the version that names the people who follow and don&apos;t hold.
+              </p>
+              {linked.length > 0 && <p className="note">Also linked on Zora: {linked.filter(([k]) => k !== "farcaster").map(([k, v]) => `${PLATFORM[k]} @${v}`).join(" · ") || "nothing else"}. No follower counts for those: X charges for the data, Instagram and TikTok don&apos;t publish it, and Zora&apos;s copy is a cache that doesn&apos;t move.</p>}
             </>
+          ) : c.follows ? (
+            <p className="note">
+              The walk of <a href={`https://farcaster.xyz/${c.follows.username}`} target="_blank" rel="noopener noreferrer">@{c.follows.username}</a>&apos;s
+              followers stopped at its page limit with {compact(c.follows.follows)} counted, so all we can say is &ldquo;more than that&rdquo;.
+              A rate needs a total, not a floor, so there isn&apos;t one here. The next run starts again from the top.
+            </p>
+          ) : linked.length ? (
+            <p className="note">
+              Linked on Zora: {linked.map(([k, v]) => `${PLATFORM[k]} @${v}`).join(" · ")}.
+              {" "}{c.socialUsers.farcaster
+                ? "We haven't counted this creator's Farcaster follows yet — the collector walks the hub a few creators an hour. Until it does, there is no follower number here that we could stand behind, so there isn't one."
+                : "None of those can be counted from a free, public source: X charges for follower access, Instagram and TikTok publish neither a follower list nor a wallet, and Zora's own copy of the numbers is a cache that doesn't move. Only a linked Farcaster account can be counted."}
+            </p>
           ) : <p className="note">This creator hasn&apos;t linked a social account on Zora, so there&apos;s no audience to compare with.</p>}
         </div>
         <div className="panel">
@@ -143,7 +167,7 @@ export default function CoinPage({ params }: { params: { address: string } }) {
           <HolderLine series={series} />
         </div>
       </section>
-      <p className="note">Not financial advice. Numbers come from Zora&apos;s API; see <Link href="/method">how they&apos;re calculated</Link>.</p>
+      <p className="note">Not financial advice. Coin and holder figures come from Zora, the follow count from a public Farcaster node; see <Link href="/method">how each one is worked out</Link>.</p>
     </>
   );
 }

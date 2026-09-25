@@ -46,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="wrap">{children}</main>
         <footer className="foot">
           <div className="wrap">
-            <span>Data from the Zora coins API. Not financial advice.</span>
+            <span>Coins and holders from Zora, rewards from Base, follows counted from the Farcaster hub. Not financial advice.</span>
             <Link href="/method">How the numbers work</Link>
             <a href="https://rebelstudiossoftware.com" target="_blank" rel="noopener noreferrer">Built by Rebel Studios</a>
             <a href="https://rebelstudiossoftware.com/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a>

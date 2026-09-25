@@ -5,7 +5,7 @@ import { ImageResponse } from "next/og";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { compact, int, PLATFORM, usd } from "@/lib/format";
-import { coinByAddress, holderSeries, leads, reach } from "@/lib/queries";
+import { coinByAddress, holderSeries, leads, per1000 } from "@/lib/queries";
 import { thumb } from "@/lib/images";
 
 
@@ -60,8 +60,9 @@ export async function coinCard(address: string, height: 630 | 800) {
   const c = coinByAddress(address)!;
   const img = await art(c.image);
   const lead = leads(1).find((l) => l.address === c.address);
-  const aud = reach(c.socials);
-  const per1k = aud.total > 0 ? (c.holders / aud.total) * 1000 : null;
+  // Only from a follow count we took ourselves. When we have not counted this creator the card
+  // shows market cap instead of inventing a rate out of Zora's cached follower number.
+  const per1k = c.follows ? per1000(c.holders, c.follows.follows) : null;
   const line = sparkline(holderSeries(c.address), 300, 110);
   const fact = (value: string, label: string, color = INK) => (
     <div style={{ display: "flex", flexDirection: "column", marginRight: 44 }}>
@@ -88,8 +89,8 @@ export async function coinCard(address: string, height: 630 | 800) {
         <div style={{ display: "flex", marginTop: "auto", alignItems: "flex-end", justifyContent: "space-between" }}>
           <div style={{ display: "flex" }}>
             {fact(int(c.holders), "holders")}
-            {aud.total > 0 ? fact(compact(aud.total), `followers on ${PLATFORM[aud.platform ?? ""] ?? "social"}`) : null}
-            {per1k !== null ? fact(per1k.toFixed(per1k < 10 ? 2 : 0), "holders per 1k") : fact(usd(c.marketCap), "market cap")}
+            {c.follows ? fact(compact(c.follows.follows), "Farcaster follows") : null}
+            {per1k !== null ? fact(per1k.toFixed(per1k < 10 ? 2 : 0), "holders per 1k follows") : fact(usd(c.marketCap), "market cap")}
             {lead ? fact(String(lead.score), "gap score", ACCENT) : null}
           </div>
           {line ? (

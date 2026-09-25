@@ -91,10 +91,10 @@ export default function TagsPage() {
             <h2>Tags that share holders</h2>
             {overlap.pairs.length ? (
               <ul className="pairs">
-                {overlap.pairs.map((p) => <li key={p.a + p.b}><b>#{p.a}</b> and <b>#{p.b}</b>: {int(p.shared)} holders in common ({Math.round((p.shared / p.smaller) * 100)}% of the smaller tag)</li>)}
+                {overlap.pairs.map((p) => <li key={p.a + p.b}><b>#{p.a}</b> and <b>#{p.b}</b>: {int(p.shared)} holders in common ({Math.round((p.shared / p.smaller) * 100)}% of the smaller {overlap.complete ? "tag" : "set"})</li>)}
               </ul>
             ) : <p className="note">{overlap.day ? "No two of the busiest tags share more than one holder." : "Holder sets for the busiest tags are taken once a day; the first is on its way."}</p>}
-            {overlap.day && <p className="note">From the {overlap.day} holder sets of the 15 most traded tags, leaving out the trading pool.</p>}
+            {overlap.day && <p className="note">From the {overlap.day} holder sets of the 15 most traded tags, leaving out the trading pool. {overlap.complete ? "Every holder of each is in the comparison." : "At least one of these tags is too large to snapshot whole, so only its largest holders are compared: the overlap is a floor, and the percentage is of the wallets we hold rather than of the tag."}</p>}
           </section>
         </>
       )}

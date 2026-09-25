@@ -99,6 +99,42 @@ export function migrate(d: Database.Database) {
       PRIMARY KEY (address, ts)
     );
   `);
+  // Farcaster identities, cached for good. Resolving a follower to a wallet is one call per fid,
+  // and a large account has hundreds of thousands of followers — far more than an hourly run can
+  // do. So the answers are kept: each run tops the index up by a budget, coverage climbs, and the
+  // index is shared by every creator (Zora's Farcaster audience overlaps heavily with itself).
+  //
+  // UNRESOLVED — this table has no ceiling, and the file it lives in is downloaded and uploaded
+  // on every hourly run. Measured on 2026-09-21: 296 bytes per fid with the profile columns, 180
+  // without. At the workflow's AUDIENCE_BUDGET of 20,000 a run that is ~142 MB a day and ~1 GB a
+  // week, moved 24 times a day inside a 55-minute job. @jacob's follower list alone is 142 MB.
+  // It needs a cap or a different store before the diffs run unattended for long; dropping the
+  // profile columns only buys 39%, so it is a design change, not a tweak.
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS fids (
+      fid INTEGER PRIMARY KEY, username TEXT, display TEXT, pfp TEXT,
+      wallets INTEGER NOT NULL, checked INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS fid_wallets (
+      fid INTEGER NOT NULL, address TEXT NOT NULL,
+      PRIMARY KEY (fid, address)
+    );
+    CREATE INDEX IF NOT EXISTS fid_wallets_by_address ON fid_wallets (address);
+  `);
+  // Farcaster follow counts Daybreak counts for itself, by walking the public hub. Zora's profile
+  // carries a follower number too, but it is a cache that does not move: on 2026-09-21 we compared
+  // 60 follower fields across 39 tracked creators with the values Zora served three days earlier
+  // and not one had changed, on accounts from 46 followers to 1.9M. Where the count could be
+  // checked it was also wrong — @jacob's Zora figure of 292,097 against 478,377 follow records on
+  // the hub. So nothing on this site is ranked on Zora's number any more; it is ranked on this
+  // table, and a creator who is not in it is left out rather than guessed at.
+  //   converged = the walk settled on a total. 0 = it hit its page cap, so the count is a floor.
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS fc_follows (
+      handle TEXT PRIMARY KEY, fid INTEGER NOT NULL, username TEXT,
+      follows INTEGER NOT NULL, converged INTEGER NOT NULL, pages INTEGER NOT NULL, ts INTEGER NOT NULL
+    );
+  `);
   const tcols = (d.prepare("PRAGMA table_info(trends)").all() as { name: string }[]).map((c) => c.name);
   if (!tcols.includes("image")) d.exec("ALTER TABLE trends ADD COLUMN image TEXT");
 }

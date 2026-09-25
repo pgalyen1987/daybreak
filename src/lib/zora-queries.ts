@@ -70,17 +70,29 @@ export function tags(): Tag[] {
   return rows;
 }
 
-/** Pairs of the busiest tags that share holders (from the latest day's holder sets), most shared first. */
+/**
+ * Pairs of the busiest tags that share holders (from the latest day's holder sets), most shared
+ * first.
+ *
+ * The percentage is deliberately "of the smaller set we hold", not "of the smaller tag". A holder
+ * set is complete for a small coin and the top 500 by balance for a large one, so on a truncated
+ * pair both the overlap and the denominator are of the captured wallets — quoting it as a share of
+ * the tag would be dividing one number by a different number's name. `complete` says which it is,
+ * and the page words it accordingly.
+ */
 export function tagOverlap(list: Tag[], n = 8) {
   const d = open();
   const day = (d.prepare("SELECT MAX(day) AS day FROM holder_meta WHERE address IN (SELECT address FROM trends)").get() as { day: string | null }).day;
-  if (!day) return { day: null, pairs: [] };
+  if (!day) return { day: null, pairs: [], complete: true };
+  const meta = new Map((d.prepare("SELECT address, total, captured FROM holder_meta WHERE day = ?").all(day) as { address: string; total: number; captured: number }[])
+    .map((r) => [r.address, r]));
   const sets = new Map<string, Set<string>>();
   const q = d.prepare("SELECT wallet FROM holder_snapshots WHERE address = ? AND day = ? AND wallet != ?");
   for (const t of list) {
     const w = (q.all(t.address, day, POOL_MANAGER) as { wallet: string }[]).map((r) => r.wallet);
     if (w.length) sets.set(t.address, new Set(w));
   }
+  const complete = [...sets.keys()].every((a) => { const m = meta.get(a); return !m || m.captured >= m.total; });
   const bySym = new Map(list.map((t) => [t.address, t.symbol]));
   const keys = [...sets.keys()];
   const pairs: { a: string; b: string; shared: number; smaller: number }[] = [];
@@ -90,5 +102,5 @@ export function tagOverlap(list: Tag[], n = 8) {
     for (const w of A) if (B.has(w)) shared++;
     if (shared >= 2) pairs.push({ a: bySym.get(keys[i])!, b: bySym.get(keys[j])!, shared, smaller: Math.min(A.size, B.size) });
   }
-  return { day, pairs: pairs.sort((x, y) => y.shared - x.shared).slice(0, n) };
+  return { day, pairs: pairs.sort((x, y) => y.shared - x.shared).slice(0, n), complete };
 }

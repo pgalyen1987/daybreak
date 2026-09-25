@@ -6,14 +6,28 @@ import Link from "next/link";
 import { useState } from "react";
 import { advise, per1000Text } from "@/lib/advice";
 import { compact, int, PLATFORM, zoraUrl } from "@/lib/format";
-import type { Socials } from "@/lib/metrics";
+import { countFollows, fidForName } from "@/lib/hub-public";
 import { CoinAvatar } from "@/components/CoinAvatar";
 import { ShareBar } from "@/components/ShareBar";
 
 const API = "https://api-sdk.zora.engineering";
 const KEYCAST = "https://keycast-production.up.railway.app";
 
-type Result = { handle: string; socials: Socials; holders: number | null; coin: string | null; symbol: string | null; image: string | null };
+// A hub page is about 2,000 follow records and about a second. 40 pages counts an 80,000-follow
+// account in well under a minute; past that the honest answer in a browser is "more than 80,000",
+// not a wrong total and not a spinner that never ends.
+const BROWSER_MAX_PAGES = 40;
+
+type Result = {
+  handle: string; holders: number | null; coin: string | null; symbol: string | null; image: string | null;
+  /** Linked account handles from Zora. The follower counts alongside them are deliberately unread. */
+  linked: Partial<Record<string, string>>;
+  /** What we counted on the hub ourselves, or null when there is no Farcaster account to count. */
+  follows: number | null;
+  followsConverged: boolean;
+  /** Zora names a Farcaster account the hub has never heard of: its copy of the name is stale. */
+  farcasterUnresolved: boolean;
+};
 
 /** "@name", "name", a zora.co profile URL or a wallet address → what the profile endpoint takes. */
 export function identifierFrom(input: string): string {
@@ -23,14 +37,24 @@ export function identifierFrom(input: string): string {
   return s.replace(/^@/, "");
 }
 
-async function lookup(identifier: string): Promise<Result | null> {
+/**
+ * Everything the page needs, read live in the browser from two keyless, CORS-open sources: Zora's
+ * coins API for the profile and the coin, and a public Farcaster hub for the follow count.
+ *
+ * Zora also serves a `followerCount` next to each linked account and this deliberately ignores it.
+ * That number is a cache that does not move — we compared 60 of them across 39 creators with the
+ * values served three days earlier and not one had changed — and where it could be checked it was
+ * wrong, 292,097 against 478,377 real follow records for @jacob. So the count is taken here,
+ * from the protocol, in front of you, and the page says how far it got.
+ */
+async function lookup(identifier: string, onCount: (n: number) => void): Promise<Result | null> {
   const r = await fetch(`${API}/profile?identifier=${encodeURIComponent(identifier)}`);
   if (!r.ok) throw new Error(`Zora answered ${r.status}`);
   const p = (await r.json())?.profile;
   if (!p) return null;
   const s = p.socialAccounts || {};
-  const count = (k: string) => (s[k] ? Number(s[k].followerCount ?? 0) : null);
-  const socials: Socials = { twitter: count("twitter"), farcaster: count("farcaster"), instagram: count("instagram"), tiktok: count("tiktok") };
+  const linked: Partial<Record<string, string>> = {};
+  for (const k of ["twitter", "farcaster", "instagram", "tiktok"]) if (s[k]?.username) linked[k] = s[k].username;
   const coin: string | null = p.creatorCoin?.address?.toLowerCase() ?? null;
   let holders: number | null = null, symbol: string | null = null;
   let image: string | null = p.avatar?.previewImage?.small ?? null;
@@ -42,21 +66,37 @@ async function lookup(identifier: string): Promise<Result | null> {
     symbol = t?.symbol ?? null;
     image = t?.mediaContent?.previewImage?.small ?? image;
   }
-  return { handle: p.handle || identifier, socials, holders, coin, symbol, image };
+  let follows: number | null = null, followsConverged = true, farcasterUnresolved = false;
+  if (linked.farcaster) {
+    const fid = await fidForName(linked.farcaster).catch(() => null);
+    if (fid) {
+      const w = await countFollows(fid, { maxPages: BROWSER_MAX_PAGES, onPage: (_, n) => onCount(n) });
+      follows = w.count;
+      followsConverged = w.converged;
+    } else {
+      // Zora's copy of the linked username is as stale as its follower counts: the name it has
+      // may have been changed since. Say that, rather than reporting no audience.
+      farcasterUnresolved = true;
+    }
+  }
+  return { handle: p.handle || identifier, holders, coin, symbol, image, linked, follows, followsConverged, farcasterUnresolved };
 }
 
 
 /** A post in the numbers' own words, true whoever shares it: the creator or someone looking them up. */
-function checkShareText(res: Result, a: NonNullable<ReturnType<typeof advise>>, median: number): string {
+function checkShareText(res: Result, a: NonNullable<ReturnType<typeof advise>>, median: number, medianN: number): string {
   const head = `$${res.symbol} on Zora: ${res.holders == null ? "no" : int(res.holders)} holders`;
-  if (!(a.reach > 0) || !a.platform) return `${head}. How many of your followers hold your coin?`;
-  const rate = a.per1000 != null ? `, ${per1000Text(a.per1000)} per 1,000 (top creators' median: ${Math.round(median)})` : "";
-  return `${head} from ${compact(a.reach)} ${PLATFORM[a.platform]} followers${rate}. How does your coin compare?`;
+  if (!res.follows) return `${head}. How many of your Farcaster followers hold your coin?`;
+  const over = res.followsConverged ? "" : "over ";
+  const rate = a.per1000 != null ? `, ${per1000Text(a.per1000)} per 1,000` : "";
+  const vs = a.per1000 != null && medianN > 0 ? ` (median across ${medianN} creators Daybreak has counted: ${per1000Text(median)})` : "";
+  return `${head} from ${over}${compact(res.follows)} Farcaster follows${rate}${vs}. How does your coin compare?`;
 }
 
-export function CoinCheck({ medianPer1000, platformMedians, tracked }: { medianPer1000: number; platformMedians?: Partial<Record<string, { median: number; n: number }>>; tracked: string[] }) {
+export function CoinCheck({ medianPer1000, medianN, tracked }: { medianPer1000: number; medianN: number; tracked: string[] }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [counted, setCounted] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<Result | null>(null);
 
@@ -64,21 +104,26 @@ export function CoinCheck({ medianPer1000, platformMedians, tracked }: { medianP
     e.preventDefault();
     const id = identifierFrom(input);
     if (!id) return;
-    setBusy(true); setError(null); setRes(null);
+    setBusy(true); setError(null); setRes(null); setCounted(null);
     try {
-      const r = await lookup(id);
+      const r = await lookup(id, setCounted);
       if (!r) setError(`No Zora profile called "${id}". Check the spelling, or paste your zora.co profile link.`);
       else setRes(r);
     } catch {
-      setError("Couldn't reach Zora just now. Try again in a minute.");
+      setError("Couldn't reach Zora or the Farcaster hub just now. Try again in a minute.");
     } finally {
-      setBusy(false);
+      setBusy(false); setCounted(null);
     }
   }
 
-  const a = res ? advise({ socials: res.socials, holders: res.holders, medianPer1000, platformMedians }) : null;
+  const a = res ? advise({
+    follows: res.follows, followsConverged: res.followsConverged,
+    farcasterLinked: !!res.linked.farcaster, farcasterUnresolved: res.farcasterUnresolved,
+    unmeasurable: (["twitter", "instagram", "tiktok"] as const).filter((k) => res.linked[k]).map((k) => PLATFORM[k]),
+    holders: res.holders, medianPer1000, medianN,
+  }) : null;
   const onDaybreak = res?.coin && tracked.includes(res.coin);
-  const linked = res ? (Object.entries(res.socials).filter(([, v]) => v != null) as [string, number][]) : [];
+  const linked = res ? (Object.entries(res.linked) as [string, string][]) : [];
   const coinLink = res?.coin ? zoraUrl(res.coin) : null;
   const shareText = res?.symbol ? `My creator coin on Zora: $${res.symbol}` : "";
 
@@ -89,9 +134,13 @@ export function CoinCheck({ medianPer1000, platformMedians, tracked }: { medianP
         <div className="check-row">
           <input id="handle" name="handle" value={input} onChange={(e) => setInput(e.target.value)} placeholder="@yourname or zora.co/@yourname"
             autoComplete="off" autoCapitalize="none" spellCheck={false} required />
-          <button className="btn" type="submit" disabled={busy}>{busy ? "Checking…" : "Check"}</button>
+          <button className="btn" type="submit" disabled={busy}>{busy ? "Counting…" : "Check"}</button>
         </div>
-        <p className="note">Read from Zora&apos;s public API in your browser. Nothing is stored.</p>
+        <p className="note" aria-live="polite">
+          {busy && counted != null
+            ? `Walking the Farcaster hub: ${int(counted)} follow records so far…`
+            : "Read in your browser from Zora's public API and a public Farcaster node. Nothing is stored, and the follow count is walked live rather than taken from Zora's cached follower number."}
+        </p>
       </form>
 
       {error && <p className="panel note" role="alert">{error}</p>}
@@ -102,17 +151,24 @@ export function CoinCheck({ medianPer1000, platformMedians, tracked }: { medianP
             <div className="who"><CoinAvatar src={res.image} label={res.handle} address={res.coin ?? "0x000000"} size={44} /><h2>@{res.handle}{res.symbol ? ` · $${res.symbol}` : ""}</h2></div>
             <div className="facts">
               <div><b>{res.holders == null ? "none" : int(res.holders)}</b>{res.holders == null ? "creator coin" : "holders"}</div>
-              <div><b>{a.reach > 0 ? compact(a.reach) : "0"}</b>{a.platform ? `followers on ${PLATFORM[a.platform]}` : "linked followers"}</div>
-              {a.per1000 != null && <div><b>{per1000Text(a.per1000)}</b>holders per 1,000 followers</div>}
+              {res.follows != null && <div><b>{res.followsConverged ? "" : "over "}{compact(res.follows)}</b>Farcaster follows</div>}
+              {a.per1000 != null && <div><b>{per1000Text(a.per1000)}</b>holders per 1,000 follows</div>}
             </div>
-            {linked.length > 0 && <p className="note">Linked on Zora: {linked.map(([k, v]) => `${PLATFORM[k]} ${compact(v)}`).join(" · ")}. The audience figure uses the largest, since followers overlap.</p>}
+            {linked.length > 0 && <p className="note">Linked on Zora: {linked.map(([k, v]) => `${PLATFORM[k]} @${v}`).join(" · ")}.</p>}
+            {res.follows != null && (
+              <p className="note">
+                {res.followsConverged
+                  ? `Counted just now by walking a public Farcaster node for every signed, unrevoked follow of @${res.linked.farcaster}. It is a ceiling — dormant accounts are in it, and Farcaster's own app shows a smaller, filtered number — but it is a count, not a copy of one.`
+                  : `Stopped at ${int(res.follows)}: this account has more follow records than a browser should walk, so that figure is a floor and no rate is shown from it. Daybreak counts the tracked creators properly on the server.`}
+              </p>
+            )}
           </section>
 
           {res.coin && res.symbol && (
             <section className="panel">
               <h2>Share these numbers</h2>
               <p className="note">{onDaybreak ? "The post carries a card with the coin's art and these numbers; on Farcaster it opens Daybreak right in the feed." : "The post links to this check, so anyone can look up their own coin."}</p>
-              <ShareBar text={checkShareText(res, a, medianPer1000)} url={onDaybreak ? `${location.origin}/coin/${res.coin}/` : `${location.origin}/check/`}
+              <ShareBar text={checkShareText(res, a, medianPer1000, medianN)} url={onDaybreak ? `${location.origin}/coin/${res.coin}/` : `${location.origin}/check/`}
                 preview={onDaybreak ? `/coin/${res.coin}/card.png` : undefined} />
             </section>
           )}

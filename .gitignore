@@ -8,4 +8,6 @@ out/
 next-env.d.ts
 tsconfig.tsbuildinfo
 data/*.sqlite*
+# follower diffs are collector output, rebuilt hourly like the database - not source
+public/audience/
 out-demo/
