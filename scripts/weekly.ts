@@ -1,9 +1,20 @@
 // This week's numbers for the weekly Daybreak post (the distribution kit turns them into text).
 // Aggregates only: no creator is named, since a post that points at someone's small holder count
 // isn't a kindness. Prints JSON. Run: DATA_DIR=... npx tsx scripts/weekly.ts
+import { execFileSync } from "node:child_process";
 import { open } from "../src/lib/db";
 import { leads, stats } from "../src/lib/queries";
 import { rewardsSummary, tags } from "../src/lib/zora-queries";
+
+// The post's numbers must come from code that is live, i.e. on main. distribution-kit runs this from the
+// working checkout (~/SAAS/coin-lens), which sat on the unmerged audience-diff branch for weeks; that is
+// how "undefined followers" was posted on 09-28. Refuse rather than print numbers from unmerged code.
+try {
+  execFileSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { stdio: "ignore" });
+} catch {
+  console.error("weekly: this checkout's HEAD isn't part of origin/main, so its numbers could come from unmerged code; run it from main");
+  process.exit(1);
+}
 
 const db = open();
 const WEEK = 7 * 86_400_000;
