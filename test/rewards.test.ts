@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fixtures from "./fixtures-reward-logs.json";
-import { blockTime, chunks, decodeReward, zoraUsd } from "@/lib/rewards";
+import { blockTime, chunks, decodeReward, logRanges, readerStale, zoraUsd } from "@/lib/rewards";
 
 // Two real logs from one Base trade (tx 0x53f27c…f195, block 51510975).
 describe("decodeReward", () => {
@@ -43,5 +43,33 @@ describe("helpers", () => {
   });
   it("splits a block range into inclusive chunks", () => {
     expect(chunks(1, 10, 4)).toEqual([[1, 4], [5, 8], [9, 10]]);
+  });
+});
+
+describe("logRanges", () => {
+  // Base's public RPC, measured 2026-10-05: blocks 52209468-52209968 answer, 52209468-52209969 is refused
+  // ("eth_getLogs is limited to a 500 range"). The collector asked for 1,500 a call and read nothing.
+  const rs = logRanges(52209467, 52209467 + 200_000);
+  it("never asks for a wider span than the public RPC answers", () => {
+    for (const [a, b] of rs) expect(b - a).toBeLessThanOrEqual(500);
+  });
+  it("starts after the cursor and leaves no gap", () => {
+    expect(rs[0][0]).toBe(52209468);
+    for (let i = 1; i < rs.length; i++) expect(rs[i][0]).toBe(rs[i - 1][1] + 1);
+  });
+  it("still reaches 50 hours of blocks a run, so one run catches up a long stall", () => {
+    expect(rs.at(-1)![1] - rs[0][0] + 1).toBe(90_000);
+    expect(logRanges(100, 1_000)).toEqual([[101, 600], [601, 1_000]]);
+  });
+});
+
+describe("readerStale", () => {
+  const now = Date.UTC(2026, 9, 5, 22, 50);
+  it("flags payouts read up to more than 3 hours ago, or never", () => {
+    expect(readerStale(Date.UTC(2026, 9, 5, 13, 51), now)).toBe(true); // the 10-05 stall, nine hours on
+    expect(readerStale(null, now)).toBe(true);
+  });
+  it("lets a normal hourly lag pass", () => {
+    expect(readerStale(now - 70 * 60_000, now)).toBe(false);
   });
 });

@@ -76,3 +76,21 @@ export function chunks(from: number, to: number, size: number): [number, number]
   for (let a = from; a <= to; a += size) out.push([a, Math.min(to, a + size - 1)]);
   return out;
 }
+
+/** Blocks per eth_getLogs call. Base's public RPC refuses a wider span since 2026-10-05 ("eth_getLogs
+ *  is limited to a 500 range": blocks 52209468-52209968 answer, 52209468-52209969 is refused). The
+ *  collector asked for 1,500 and read nothing from 14:50 UTC that day on, while every run passed. */
+export const LOG_RANGE = 500;
+/** Calls per run: 90,000 blocks (50 hours), the reach a run had at 1,500 blocks a call. */
+export const LOG_CALLS = 180;
+
+/** The block ranges one run reads: from the block after `cursor` up to `head`, at most LOG_CALLS of them. */
+export function logRanges(cursor: number, head: number): [number, number][] {
+  return chunks(cursor + 1, head, LOG_RANGE).slice(0, LOG_CALLS);
+}
+
+/** Payouts read up to more than 3 hours ago mean the reader is stuck, not slow (it runs hourly). */
+export const STALE_AFTER_MS = 3 * 3_600_000;
+export function readerStale(readTo: number | null, now: number): boolean {
+  return readTo == null || now - readTo > STALE_AFTER_MS;
+}

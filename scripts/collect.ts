@@ -8,7 +8,7 @@
 //   PAGES_PER_LIST (default 10 -> up to 200 coins per list), CONCURRENCY (default 3),
 //   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC).
 import { open } from "../src/lib/db";
-import { chunks, blockTime, decodeReward, ROLES, USDC, ZORA_TOKEN, MARKET_TOPIC, CREATOR_TOPIC, zoraUsd, type RawLog, type Reward } from "../src/lib/rewards";
+import { blockTime, decodeReward, logRanges, ROLES, USDC, ZORA_TOKEN, MARKET_TOPIC, CREATOR_TOPIC, zoraUsd, type RawLog, type Reward } from "../src/lib/rewards";
 import { coinQuote, holders, pool, profileHandle, profileSocials, recentSwaps, trendUniverse, universe } from "../src/lib/zora";
 import { thumb } from "../src/lib/images";
 
@@ -136,8 +136,7 @@ async function holderSets() {
 
 // --- rewards ---------------------------------------------------------------------------------
 const RPC = process.env.BASE_RPC_URL || "https://mainnet.base.org";
-const REWARD_CHUNK = 1500;       // blocks per eth_getLogs call (an hour is 1,800; ~400 payouts)
-const REWARD_MAX_CHUNKS = 60;    // per run, so a long gap catches up over several runs
+// Blocks per eth_getLogs call and calls per run: LOG_RANGE and LOG_CALLS in lib/rewards.ts
 const REWARD_BACKFILL = 43_200;  // the first run starts a day back
 const PRICE_FETCH_MAX = 60;      // unknown currencies priced per run; the rest wait for the next
 const NAME_FETCH_MAX = 40;       // wallets given a Zora handle per run
@@ -201,9 +200,10 @@ async function rewards() {
   const ref = await rpc<{ timestamp: string }>("eth_getBlockByNumber", [hex(head), false]);
   const refTs = parseInt(ref.timestamp, 16) * 1000;
   const cur = db.prepare("SELECT value FROM cursors WHERE name = 'rewards'").get() as { value: number } | undefined;
-  const ranges = chunks((cur?.value ?? head - REWARD_BACKFILL) + 1, head, REWARD_CHUNK).slice(0, REWARD_MAX_CHUNKS);
+  const start = cur?.value ?? head - REWARD_BACKFILL;
+  const ranges = logRanges(start, head);
   const decoded: Reward[] = [];
-  let errors = 0, last = cur?.value ?? head - REWARD_BACKFILL;
+  let errors = 0, last = start;
   for (const [a, b] of ranges) {
     try {
       const logs = await rpc<RawLog[]>("eth_getLogs", [{ fromBlock: hex(a), toBlock: hex(b), topics: [[MARKET_TOPIC, CREATOR_TOPIC]] }]);
@@ -239,6 +239,8 @@ async function rewards() {
       }
     }
     db.prepare("INSERT OR REPLACE INTO cursors (name, value) VALUES ('rewards', ?)").run(last);
+    // when the last block read was made: /rewards prints it, and scripts/rewards-fresh.ts fails the run when it falls behind
+    db.prepare("INSERT OR REPLACE INTO cursors (name, value) VALUES ('rewards_ts', ?)").run(blockTime(last, head, refTs));
   })();
 
   // Handles for the wallets the page will list: the top earners of the week in each role
@@ -251,6 +253,8 @@ async function rewards() {
   await pool(want, CONCURRENCY, async (a) => { try { saveName.run(a, await profileHandle(a), now); } catch { errors++; } });
   endRun(run, added, errors, `blocks to ${last}`);
   log(`rewards: ${added} new payouts from ${ranges.length} block ranges (to ${last}), ${[...prices.values()].filter((v) => v == null).length} currencies unpriced, ${want.length} names, ${errors} errors`);
+  // a run that read nothing exits non-zero, so the workflow's warning fires instead of a quiet pass
+  if (errors && last === start && ranges.length) process.exitCode = 1;
 }
 
 // --- trends (tags) ---------------------------------------------------------------------------

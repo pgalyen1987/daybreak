@@ -46,6 +46,16 @@ export function rewardsSummary(days = 7) {
   };
 }
 
+/** When the newest block the rewards reader got through was made (ms), or null before its first run. */
+export function rewardsReadTo(): number | null {
+  if (!has("cursors")) return null;
+  const d = open();
+  const c = d.prepare("SELECT value FROM cursors WHERE name = 'rewards_ts'").get() as { value: number } | undefined;
+  if (c) return c.value;
+  // databases written before the cursor existed: the newest payout stored
+  return has("rewards") ? (d.prepare("SELECT MAX(ts) AS ts FROM rewards").get() as { ts: number | null }).ts : null;
+}
+
 /** What one coin's trades paid its creator over the last `days` days (priced payouts only). */
 export function coinCreatorEarnings(address: string, days = 7) {
   if (!has("coin_reward_daily")) return null;

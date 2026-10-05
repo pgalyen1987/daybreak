@@ -100,3 +100,9 @@ jobs:
             git commit --allow-empty -m "Keep the hourly schedule alive"
             git push
           fi
+
+      # Last, so the site ships either way. A failed rewards read only warns (above), and on 10-05 the
+      # reader failed every hour from 14:50 UTC while every run passed. This fails the run once the
+      # payouts are more than 3 hours behind, so a stuck reader shows red here and on the boss panel.
+      - name: Rewards are current
+        run: npx tsx scripts/rewards-fresh.ts

@@ -3,8 +3,8 @@ import Link from "next/link";
 import { StackedBars } from "@/components/charts";
 import { miniappMeta } from "@/lib/embed";
 import { int, pct, usd } from "@/lib/format";
-import { ROLE_LABEL, ROLES, type Role } from "@/lib/rewards";
-import { rewardsSummary, type Earner } from "@/lib/zora-queries";
+import { readerStale, ROLE_LABEL, ROLES, type Role } from "@/lib/rewards";
+import { rewardsReadTo, rewardsSummary, type Earner } from "@/lib/zora-queries";
 import { CoinAvatar } from "@/components/CoinAvatar";
 
 export const metadata: Metadata = {
@@ -46,6 +46,9 @@ function Earners({ title, rows, note }: { title: string; rows: Earner[]; note: s
 
 export default function RewardsPage() {
   const s = rewardsSummary(7);
+  const readTo = rewardsReadTo();
+  const readText = readTo == null ? null : new Date(readTo).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+  const behind = readerStale(readTo, Date.now());
   // until a full week is recorded, every "7 days" label would overstate the window
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
   const span = s?.earliest && s.earliest > weekAgo
@@ -72,6 +75,7 @@ export default function RewardsPage() {
             <p className="note">
               Dollar values use each currency&apos;s price when the payout was recorded. {pct(s.priced / s.payouts, 0)} of payouts are priced; the rest were paid in
               creator coins we hadn&apos;t priced yet and count as $0 here, so totals read low. Recorded since {s.earliest}.
+              {readText && <> Payouts read from Base up to {readText}{behind ? ", which is behind: later payouts aren't counted yet" : ""}.</>}
             </p>
           </section>
           <section className="panel">
