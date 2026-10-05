@@ -20,6 +20,12 @@ export const MARKET_TOPIC = "0x35b5031218696db1dfd903223a47f38e66a1998e14a942a5d
 export const CREATOR_TOPIC = "0xea92473287be4e55f8279d0b8395a45960a217ae2f1a76ac9cae84af58a751ed";
 export const ZORA_TOKEN = "0x1111111111166b7fe7bd91427724b487980afc69";
 export const USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
+export const WETH = "0x4200000000000000000000000000000000000006";
+export const ETH = "0x0000000000000000000000000000000000000000"; // a native-ETH pool's currency word
+/** Chainlink's ETH / USD feed on Base (8 decimals; description() reads "ETH / USD"), and its
+ *  latestRoundData() selector. */
+export const CHAINLINK_ETH_USD = "0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70";
+export const LATEST_ROUND_DATA = "0xfeaf968c";
 export const ROLES = ["creator", "platform", "trade", "protocol", "doppler"] as const;
 export type Role = (typeof ROLES)[number];
 export const ROLE_LABEL: Record<Role, string> = {
@@ -49,14 +55,11 @@ export type Reward = {
   amounts: Record<Role, number>; // in currency units (18 decimals, or 6 for USDC); coin-side amounts are ignored (zero so far)
 };
 
-const ZERO = "0x0000000000000000000000000000000000000000";
+const ZERO = ETH;
 const word = (data: string, i: number) => data.slice(2 + i * 64, 2 + (i + 1) * 64);
 const addr = (data: string, i: number) => { const a = "0x" + word(data, i).slice(24); return a === ZERO ? null : a; };
-const units = (data: string, i: number, decimals: number) => {
-  const v = BigInt("0x" + (word(data, i) || "0"));
-  const scale = 10n ** BigInt(Math.max(0, decimals - 6)); // keep 6 decimals, then float
-  return Number(v / scale) / 10 ** Math.min(decimals, 6);
-};
+// Full precision: cutting to 6 decimals stored 829 of 1,522 WETH payouts in a day as exactly 0.
+const units = (data: string, i: number, decimals: number) => Number(BigInt("0x" + (word(data, i) || "0"))) / 10 ** decimals;
 
 /** The addresses in an address[] returned by eth_call (offset, length, then one word each), lowercased. */
 export function addressList(hex: string): string[] {
@@ -113,6 +116,18 @@ export function pairTwins(rs: Reward[]): Reward[] {
 export function firstFullDay(ts: number): string {
   const d = new Date(ts);
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString().slice(0, 10);
+}
+
+/** USD per ETH from latestRoundData()'s return words, or null when the answer isn't positive or the
+ *  round is more than 3 hours old: an unpriced payout beats a wrongly priced one. */
+export function parseLatestRound(hex: string, now: number): number | null {
+  const d = hex.replace(/^0x/, "");
+  if (d.length < 5 * 64) return null;
+  const answer = BigInt("0x" + d.slice(64, 128)); // int256: a set top bit is negative
+  const updatedAt = Number(BigInt("0x" + d.slice(192, 256))) * 1000;
+  if (answer <= 0n || answer >> 255n) return null;
+  if (now - updatedAt > 3 * 3_600_000) return null;
+  return Number(answer) / 1e8;
 }
 
 /** ZORA's dollar price from any coin priced against it: USD per coin / ZORA per coin. */

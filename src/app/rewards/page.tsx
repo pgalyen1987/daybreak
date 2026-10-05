@@ -69,7 +69,7 @@ export default function RewardsPage() {
       {!s ? (
         <p className="panel note">
           {countedFrom ? `Totals count from ${dayText(countedFrom)} (UTC) and appear once that day's payouts are read.` : "Totals start with the next hourly update."}{" "}
-          Earlier days counted each creator-coin payout twice, so they aren&apos;t shown.
+          Earlier days counted each creator-coin payout twice and left payouts in ETH at $0, so they aren&apos;t shown.
         </p>
       ) : (
         <>
@@ -81,7 +81,7 @@ export default function RewardsPage() {
             </div>
             <p className="note">
               Dollar values use each currency&apos;s price when the payout was recorded. {pct(s.priced / s.payouts, 0)} of payouts are priced; the rest were paid in
-              creator coins we hadn&apos;t priced yet and count as $0 here, so totals read low. Recorded since {s.earliest}.
+              a currency we couldn&apos;t price when we read them and count as $0 here, so totals read low. Recorded since {s.earliest}.
               {readText && <> Payouts read from Base up to {readText}{behind ? ", which is behind: later payouts aren't counted yet" : ""}.</>}
             </p>
           </section>
@@ -103,7 +103,7 @@ export default function RewardsPage() {
                 protocol shares. A creator coin&apos;s contract sends both for a single payment, so a second event that repeats the first
                 counts once. Both are read for every Zora coin, not only the creators on the <Link href="/">gap map</Link>. Wallets show their Zora
                 handle when they have a profile.
-                {countedFrom && <> Days before {dayText(countedFrom)} counted that repeat as a second payment, so they aren&apos;t shown.</>}
+                {countedFrom && <> Days before {dayText(countedFrom)} counted that repeat as a second payment and left payouts in ETH at $0, so they aren&apos;t shown.</>}
               </p>
             </div>
           </section>

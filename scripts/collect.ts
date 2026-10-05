@@ -9,8 +9,9 @@
 //   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC).
 import { open } from "../src/lib/db";
 import {
-  addressList, blockTime, decodeReward, firstFullDay, logRanges, pairTwins, zoraUsd, COIN_FACTORY, CREATOR_TOPIC, GET_HOOK_ADDRESSES,
-  HOOKS_BEFORE_REGISTRY, MARKET_TOPIC, ROLES, USDC, ZORA_HOOK_REGISTRY, ZORA_TOKEN, type RawLog, type Reward,
+  addressList, blockTime, decodeReward, firstFullDay, logRanges, pairTwins, parseLatestRound, zoraUsd, CHAINLINK_ETH_USD, COIN_FACTORY,
+  CREATOR_TOPIC, ETH, GET_HOOK_ADDRESSES, HOOKS_BEFORE_REGISTRY, LATEST_ROUND_DATA, MARKET_TOPIC, ROLES, USDC, WETH, ZORA_HOOK_REGISTRY,
+  ZORA_TOKEN, type RawLog, type Reward,
 } from "../src/lib/rewards";
 import { coinQuote, holders, pool, profileHandle, profileSocials, recentSwaps, trendUniverse, universe } from "../src/lib/zora";
 import { thumb } from "../src/lib/images";
@@ -172,16 +173,27 @@ async function zoraHooks(): Promise<Set<string>> {
   return new Set([...hooks, ...HOOKS_BEFORE_REGISTRY]);
 }
 
-/** USD per unit of each currency: USDC is 1, ZORA via any coin priced in it, creator coins from our
- *  snapshots or a recent price, else the API (capped per run). Unknown stays null (counted unpriced). */
+/** USD per unit of each currency: USDC is 1, ETH and WETH from Chainlink's ETH/USD on Base, ZORA via any
+ *  coin priced in it, creator coins from our snapshots or a recent price, else the API (capped per run).
+ *  Unknown stays null (counted unpriced). */
 async function unitPrices(currencies: string[]): Promise<Map<string, number | null>> {
   const out = new Map<string, number | null>();
   const tracked = db.prepare(`SELECT s.price_usd AS usd FROM coin_snapshots s WHERE s.address = ? ORDER BY ts DESC LIMIT 1`);
   const cached = db.prepare("SELECT usd FROM prices WHERE address = ? AND ts > ?");
   const save = db.prepare("INSERT OR REPLACE INTO prices (address, usd, ts) VALUES (?, ?, ?)");
   let fetched = 0;
+  let eth: number | null | undefined; // read once a run
   for (const c of currencies) {
     if (c === USDC) { out.set(c, 1); continue; }
+    if (c === WETH || c === ETH) {
+      if (eth === undefined) {
+        const round = await rpc<string>("eth_call", [{ to: CHAINLINK_ETH_USD, data: LATEST_ROUND_DATA }, "latest"]).catch(() => "0x");
+        eth = parseLatestRound(round, Date.now());
+        if (eth == null) log("rewards: no fresh ETH/USD from Chainlink; ETH payouts stay unpriced this run");
+      }
+      if (eth != null) save.run(c, eth, now);
+      out.set(c, eth); continue;
+    }
     if (c === ZORA_TOKEN) {
       const hit = cached.get(c, now - 3_600_000) as { usd: number | null } | undefined;
       if (hit) { out.set(c, hit.usd); continue; }
