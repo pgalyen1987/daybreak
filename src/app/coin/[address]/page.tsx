@@ -85,7 +85,6 @@ export default function CoinPage({ params }: { params: { address: string } }) {
               <div className="facts">
                 <div><b>{compact(aud.total)}</b>followers on {PLATFORM[aud.platform ?? ""]}</div>
                 <div><b>{((c.holders / aud.total) * 1000).toFixed(2)}</b>holders per 1,000 followers</div>
-                <div><b>{compact(Math.max(0, aud.total - c.holders))}</b>not yet holding</div>
               </div>
               <p className="note">Linked accounts: {socials.map(([k, v]) => `${PLATFORM[k]} ${compact(v)}`).join(" · ")}. Audience uses the largest one, since followers overlap.</p>
             </>

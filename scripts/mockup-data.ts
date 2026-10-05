@@ -24,7 +24,7 @@ const scored = gapScores(rows.filter((r) => r.holders >= MIN_HOLDERS).map((r) =>
 const leaderboard = scored.slice(0, 10).map((g) => {
   const r = byId.get(g.id)!;
   return { symbol: r.symbol, handle: r.handle, holders: g.holders, reach: g.reach, platform: g.platform,
-    per1k: Math.round(g.conversion * 1000 * 100) / 100, untapped: g.untapped, score: g.score, marketCap: Math.round(r.market_cap) };
+    per1k: Math.round(g.conversion * 1000 * 100) / 100, score: g.score, marketCap: Math.round(r.market_cap) };
 });
 const scatter = scored.map((g) => ({ h: byId.get(g.id)!.handle, reach: g.reach, holders: g.holders, score: g.score }));
 

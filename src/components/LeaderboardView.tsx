@@ -75,7 +75,6 @@ export function LeaderboardView({ boards, defaultMin, view }: { boards: Boards; 
                     <svg viewBox="0 0 84 8" aria-hidden="true"><rect width="84" height="8" rx="4" fill="var(--faint)" /><rect width={Math.max(2, Math.min(84, (84 * r.conversion * 1000) / METER_MAX))} height="8" rx="4" fill="var(--accent)" /></svg>
                   </span>
                 </td>
-                <td className="c-untapped">{compact(r.untapped)}</td>
                 <td className="c-marketCap">{usd(r.marketCap)}</td>
               </tr>
             ))}

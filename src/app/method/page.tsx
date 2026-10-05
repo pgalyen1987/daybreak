@@ -21,7 +21,7 @@ export default function Method() {
       <p>A creator&apos;s largest single linked account. The same fans often follow on several platforms, so adding the counts together would overstate reach.</p>
 
       <h2>Gap score</h2>
-      <p>Holders per 1,000 followers, ranked against every other creator we track, then weighted by audience size (a million followers is full weight). A high score means a large audience and, relative to everyone else, few holders. Creators with fewer than {MIN_REACH.toLocaleString("en-US")} followers or fewer than {MIN_HOLDERS} holders are left out of the leaderboard: a tiny audience or a coin nobody holds isn&apos;t a useful lead.</p>
+      <p>Holders per 1,000 followers, ranked against the other creators whose largest linked account is on the same platform, then weighted by audience size (a million followers is full weight). Audiences convert very differently by platform, so ranking an X audience against a Farcaster one would mostly measure the platform. A high score means a large audience and, relative to everyone else, few holders. Creators with fewer than {MIN_REACH.toLocaleString("en-US")} followers or fewer than {MIN_HOLDERS} holders are left out of the leaderboard: a tiny audience or a coin nobody holds isn&apos;t a useful lead.</p>
 
       <h2>Volume and trades</h2>
       <p>Summed from individual trades, each valued at the trade&apos;s own currency price in USDC. This can differ from the 24-hour volume on Zora&apos;s site, which is calculated on a slightly delayed window.</p>

@@ -68,9 +68,10 @@ export default function Home() {
         <div className="panel">
           <h2>What the score means</h2>
           <p className="note" style={{ color: "var(--ink)" }}>
-            Holders per 1,000 followers, compared with every other creator we track, and weighted by audience size so a million-follower
-            gap outranks a small one. Audience is the creator&apos;s largest single linked account; followers overlap across platforms,
-            so they aren&apos;t added up.
+            Holders per 1,000 followers, compared with the creators whose largest account is on the same platform (X, Farcaster,
+            Instagram and TikTok audiences convert very differently), and weighted by audience size so a million-follower gap outranks a
+            small one. Audience is the creator&apos;s largest single linked account; followers overlap across platforms, so they aren&apos;t
+            added up. Follower counts are Zora&apos;s, which it doesn&apos;t refresh.
           </p>
           <div className="facts">
             <div><b className="num">{int(s.coins)}</b>creator coins tracked</div>

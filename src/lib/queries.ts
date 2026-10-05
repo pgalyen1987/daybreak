@@ -43,14 +43,14 @@ export function coinByAddress(address: string): CoinRow | null {
   return r ? toRow(r) : null;
 }
 
-export type Lead = CoinRow & { reach: number; platform: string | null; conversion: number; untapped: number; score: number };
+export type Lead = CoinRow & { reach: number; platform: string | null; conversion: number; score: number };
 
 /** The gap leaderboard: every coin with a linked audience and at least MIN_HOLDERS holders, best leads first. */
 export function leads(minHolders = MIN_HOLDERS): Lead[] {
   const coins = allCoins().filter((c) => c.holders >= minHolders);
   const byId = new Map(coins.map((c) => [c.address, c]));
   return gapScores(coins.map((c) => ({ id: c.address, holders: c.holders, socials: c.socials })))
-    .map((g) => ({ ...byId.get(g.id)!, reach: g.reach, platform: g.platform, conversion: g.conversion, untapped: g.untapped, score: g.score }));
+    .map((g) => ({ ...byId.get(g.id)!, reach: g.reach, platform: g.platform, conversion: g.conversion, score: g.score }));
 }
 
 export function stats() {

@@ -61,8 +61,23 @@ describe("gapScores", () => {
     const many = out.find((r) => r.id === "big-audience-many-holders")!;
     expect(small.score).toBeGreaterThan(many.score);
   });
-  it("reports the untapped audience", () => {
-    expect(out[0].untapped).toBe(999_500);
+  it("reports no 'not yet holding' figure: followers minus holders isn't a count of anyone", () => {
+    expect(out[0]).not.toHaveProperty("untapped");
+  });
+  it("ranks each creator against creators whose largest audience is on the same platform", () => {
+    // X audiences here convert ten times worse than Farcaster ones; each creator is lowest of their own platform
+    const mixed = gapScores([
+      { id: "x-low", holders: 10, socials: { twitter: 1_000_000 } },
+      { id: "x-mid", holders: 20, socials: { twitter: 1_000_000 } },
+      { id: "x-high", holders: 30, socials: { twitter: 1_000_000 } },
+      { id: "fc-low", holders: 100, socials: { farcaster: 1_000_000 } },
+      { id: "fc-mid", holders: 200, socials: { farcaster: 1_000_000 } },
+      { id: "fc-high", holders: 300, socials: { farcaster: 1_000_000 } },
+    ]);
+    const score = (id: string) => mixed.find((r) => r.id === id)!.score;
+    expect(score("fc-low")).toBe(score("x-low"));
+    expect(score("fc-high")).toBe(score("x-high"));
+    expect(score("fc-low")).toBeGreaterThan(score("x-mid"));
   });
   it("keeps scores in 0..100", () => {
     for (const r of out) { expect(r.score).toBeGreaterThanOrEqual(0); expect(r.score).toBeLessThanOrEqual(100); }

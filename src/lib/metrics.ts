@@ -40,12 +40,15 @@ export function percentileRank(sorted: number[], x: number): number {
 export const MIN_REACH = 1_000;
 
 export type GapInput = { id: string; holders: number; socials: Socials };
-export type GapRow = { id: string; holders: number; reach: number; platform: string | null; conversion: number; untapped: number; score: number };
+export type GapRow = { id: string; holders: number; reach: number; platform: string | null; conversion: number; score: number };
 
 /**
  * Social-to-onchain gap. A creator scores high when their audience is large and the share of it
- * holding the coin is low compared with every other creator we track.
- *   score = 100 x (1 - percentile of conversion) x size weight
+ * holding the coin is low compared with the creators whose largest linked account is on the same
+ * platform. Audiences convert very differently by platform (in the 10-05 data the median X-led creator
+ * had 14 holders per 1,000 followers, the median Farcaster-led one 39), so ranking them against each
+ * other mostly measured which platform a creator is on.
+ *   score = 100 x (1 - percentile of conversion among the same platform) x size weight
  *   size weight = log10(reach) / 6, capped at 1 (a million followers is full weight)
  * Creators under MIN_REACH followers are left out: a tiny audience says nothing about a gap.
  */
@@ -57,12 +60,14 @@ export function gapScores(rows: GapInput[]): GapRow[] {
       return c === null || total < MIN_REACH ? null : { id: r.id, holders: r.holders, reach: total, platform, conversion: c };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
-  const sorted = base.map((r) => r.conversion).sort((a, b) => a - b);
+  const byPlatform = new Map<string | null, number[]>();
+  for (const r of base) byPlatform.set(r.platform, [...(byPlatform.get(r.platform) ?? []), r.conversion]);
+  for (const xs of byPlatform.values()) xs.sort((a, b) => a - b);
   return base
     .map((r) => {
       const weight = Math.min(1, Math.log10(r.reach) / 6);
-      const score = Math.round(100 * (1 - percentileRank(sorted, r.conversion)) * weight);
-      return { ...r, untapped: Math.max(0, r.reach - r.holders), score };
+      const score = Math.round(100 * (1 - percentileRank(byPlatform.get(r.platform)!, r.conversion)) * weight);
+      return { ...r, score };
     })
     .sort((a, b) => b.score - a.score || b.reach - a.reach);
 }

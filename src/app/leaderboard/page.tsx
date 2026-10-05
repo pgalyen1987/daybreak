@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Gap leaderboard", description: "Zora
 export default function Leaderboard() {
   const boards: Boards = Object.fromEntries(MINS.map((m) => [String(m), leads(m).map((r) => ({
     address: r.address, handle: r.handle, symbol: r.symbol, image: r.image, score: r.score, reach: r.reach, platform: r.platform,
-    holders: r.holders, conversion: r.conversion, untapped: r.untapped, marketCap: r.marketCap,
+    holders: r.holders, conversion: r.conversion, marketCap: r.marketCap,
   }))]));
   return (
     <Suspense fallback={<LeaderboardView boards={boards} defaultMin={MIN_HOLDERS} />}>
