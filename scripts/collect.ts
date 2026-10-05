@@ -8,7 +8,10 @@
 //   PAGES_PER_LIST (default 10 -> up to 200 coins per list), CONCURRENCY (default 3),
 //   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC).
 import { open } from "../src/lib/db";
-import { blockTime, decodeReward, firstFullDay, logRanges, pairTwins, ROLES, USDC, ZORA_TOKEN, MARKET_TOPIC, CREATOR_TOPIC, zoraUsd, type RawLog, type Reward } from "../src/lib/rewards";
+import {
+  addressList, blockTime, decodeReward, firstFullDay, logRanges, pairTwins, zoraUsd, COIN_FACTORY, CREATOR_TOPIC, GET_HOOK_ADDRESSES,
+  HOOKS_BEFORE_REGISTRY, MARKET_TOPIC, ROLES, USDC, ZORA_HOOK_REGISTRY, ZORA_TOKEN, type RawLog, type Reward,
+} from "../src/lib/rewards";
 import { coinQuote, holders, pool, profileHandle, profileSocials, recentSwaps, trendUniverse, universe } from "../src/lib/zora";
 import { thumb } from "../src/lib/images";
 
@@ -158,6 +161,17 @@ async function rpc<T>(method: string, params: unknown[], tries = 4): Promise<T> 
 }
 const hex = (n: number) => "0x" + n.toString(16);
 
+/** Zora's hooks, lowercased: the list in the registry Zora's coin factory names, read now, plus the older
+ *  hooks the registry leaves out. Throws when the list can't be read or comes back empty. */
+async function zoraHooks(): Promise<Set<string>> {
+  const named = await rpc<string>("eth_call", [{ to: COIN_FACTORY, data: ZORA_HOOK_REGISTRY }, "latest"]);
+  const registry = /^0x0{24}[0-9a-f]{40}$/i.test(named) ? "0x" + named.slice(26).toLowerCase() : null;
+  if (!registry || /^0x0{40}$/.test(registry)) throw new Error(`the coin factory named no hook registry (${String(named).slice(0, 80)})`);
+  const hooks = addressList(await rpc<string>("eth_call", [{ to: registry, data: GET_HOOK_ADDRESSES }, "latest"]));
+  if (!hooks.length) throw new Error(`Zora's hook registry ${registry} listed no hooks`);
+  return new Set([...hooks, ...HOOKS_BEFORE_REGISTRY]);
+}
+
 /** USD per unit of each currency: USDC is 1, ZORA via any coin priced in it, creator coins from our
  *  snapshots or a recent price, else the API (capped per run). Unknown stays null (counted unpriced). */
 async function unitPrices(currencies: string[]): Promise<Map<string, number | null>> {
@@ -196,6 +210,9 @@ async function unitPrices(currencies: string[]): Promise<Map<string, number | nu
 
 async function rewards() {
   const run = startRun("rewards");
+  // without the list of Zora's hooks no payout event can be trusted: read nothing, and try again next hour
+  const hooks = await zoraHooks().catch((e) => { log("rewards error: hook registry", String(e).slice(0, 160)); return null; });
+  if (!hooks) { endRun(run, 0, 1, "hook registry unreadable"); process.exitCode = 1; return; }
   const head = parseInt(await rpc<string>("eth_blockNumber", []), 16) - 5; // a few blocks back from the tip
   const ref = await rpc<{ timestamp: string }>("eth_getBlockByNumber", [hex(head), false]);
   const refTs = parseInt(ref.timestamp, 16) * 1000;
@@ -203,11 +220,15 @@ async function rewards() {
   const start = cur?.value ?? head - REWARD_BACKFILL;
   const ranges = logRanges(start, head);
   const decoded: Reward[] = [];
+  const foreign = new Map<string, number>(); // payout events from contracts that aren't Zora hooks, by emitter
   let errors = 0, last = start;
   for (const [a, b] of ranges) {
     try {
       const logs = await rpc<RawLog[]>("eth_getLogs", [{ fromBlock: hex(a), toBlock: hex(b), topics: [[MARKET_TOPIC, CREATOR_TOPIC]] }]);
-      for (const l of logs) { const r = decodeReward(l); if (r) decoded.push(r); }
+      for (const l of logs) {
+        const r = decodeReward(l, hooks), emitter = String(l.address).toLowerCase();
+        if (r) decoded.push(r); else if (!hooks.has(emitter)) foreign.set(emitter, (foreign.get(emitter) ?? 0) + 1);
+      }
       last = b;
     } catch (e) { errors++; log("rewards error", a, b, String(e).slice(0, 120)); break; } // resume from here next run
   }
@@ -256,8 +277,10 @@ async function rewards() {
     .filter((a) => !known.get(a, now - 7 * 86_400_000)).slice(0, NAME_FETCH_MAX);
   const saveName = db.prepare("INSERT OR REPLACE INTO names (address, handle, ts) VALUES (?, ?, ?)");
   await pool(want, CONCURRENCY, async (a) => { try { saveName.run(a, await profileHandle(a), now); } catch { errors++; } });
-  endRun(run, added, errors, `blocks to ${last}`);
-  log(`rewards: ${added} new payouts from ${ranges.length} block ranges (to ${last}), ${[...prices.values()].filter((v) => v == null).length} currencies unpriced, ${want.length} names, ${errors} errors`);
+  const dropped = [...foreign.values()].reduce((x, y) => x + y, 0);
+  const note = dropped ? `, ${dropped} events from ${foreign.size} contracts that aren't Zora hooks dropped (${[...foreign.keys()].slice(0, 5).join(" ")})` : "";
+  endRun(run, added, errors, `blocks to ${last}${note}`);
+  log(`rewards: ${added} new payouts from ${ranges.length} block ranges (to ${last}), ${[...prices.values()].filter((v) => v == null).length} currencies unpriced, ${want.length} names, ${errors} errors${note}`);
   // a run that read nothing exits non-zero, so the workflow's warning fires instead of a quiet pass
   if (errors && last === start && ranges.length) process.exitCode = 1;
 }

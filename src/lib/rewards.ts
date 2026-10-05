@@ -11,8 +11,10 @@
 // transfer of 0.064019 to the creator at log 335, market event 338, creator event 339). pairTwins()
 // keeps one. Older creator-coin hooks emit the creator event alone, and that one counts.
 //
-// The hooks have several deployed versions, so logs are fetched by event topic across all
-// addresses. Pure decoding and aggregation here; scripts/collect.ts fetches and stores.
+// The hooks have several deployed versions, so logs are fetched by event topic across all addresses
+// and then kept only when a Zora hook emitted them: any contract can emit the same event naming any
+// coin, wallet and amount, for a cent of gas. Pure decoding and aggregation here; scripts/collect.ts
+// fetches and stores.
 
 export const MARKET_TOPIC = "0x35b5031218696db1dfd903223a47f38e66a1998e14a942a5d60fddaa49a685fc";
 export const CREATOR_TOPIC = "0xea92473287be4e55f8279d0b8395a45960a217ae2f1a76ac9cae84af58a751ed";
@@ -24,7 +26,22 @@ export const ROLE_LABEL: Record<Role, string> = {
   creator: "Creators", platform: "Platform referrers", trade: "Trade referrers", protocol: "Protocol", doppler: "Doppler",
 };
 
-export type RawLog = { topics: string[]; data: string; blockNumber: string; transactionHash: string; logIndex: string };
+/** Zora's coin factory on Base and its zoraHookRegistry() selector: the registry it names lists Zora's
+ *  hooks, and getHookAddresses() (selector below) returns them. */
+export const COIN_FACTORY = "0x777777751622c0d3258f214f9df38e35bf45baf3";
+export const ZORA_HOOK_REGISTRY = "0xa6de70b4";
+export const GET_HOOK_ADDRESSES = "0xafeb348f";
+/** Older Zora hooks the registry leaves out, which still pay on coins that never moved to a newer one.
+ *  Each checked on 2026-09-30 (pay-week 6965b8f): Zora's API gives it as the pool hook of coins it lists.
+ *    0x9278…1040 CreatorCoinHook, 0x9b47…d040 ContentCoinHook, 0xfff8…9040 CreatorCoinHook.
+ *  An emitter on neither list is dropped, and the run's note names it, so a new hook shows up there. */
+export const HOOKS_BEFORE_REGISTRY = [
+  "0x9278f6e55ce58519c79dc1ab0ad3b29ea7821040",
+  "0x9b47e436e216b2cb54d6f24154f86d946098d040",
+  "0xfff800b76768da8ab6aab527021e4a6a91219040",
+];
+
+export type RawLog = { address: string; topics: string[]; data: string; blockNumber: string; transactionHash: string; logIndex: string };
 
 export type Reward = {
   tx: string; logIndex: number; block: number; kind: "market" | "creator"; coin: string; currency: string;
@@ -41,7 +58,19 @@ const units = (data: string, i: number, decimals: number) => {
   return Number(v / scale) / 10 ** Math.min(decimals, 6);
 };
 
-export function decodeReward(log: RawLog): Reward | null {
+/** The addresses in an address[] returned by eth_call (offset, length, then one word each), lowercased. */
+export function addressList(hex: string): string[] {
+  const d = hex.replace(/^0x/, "");
+  if (d.length < 128) return [];
+  const n = parseInt(d.slice(64, 128), 16);
+  if (!(n > 0) || d.length < 128 + n * 64) return [];
+  return Array.from({ length: n }, (_, i) => "0x" + d.slice(128 + i * 64 + 24, 128 + (i + 1) * 64).toLowerCase());
+}
+
+/** A payout from a log, or null when it isn't one: another event, too short, or emitted by a contract
+ *  that isn't one of Zora's hooks (`hooks`, lowercased). */
+export function decodeReward(log: RawLog, hooks: Set<string>): Reward | null {
+  if (!hooks.has(String(log.address).toLowerCase())) return null;
   const t0 = log.topics[0]?.toLowerCase();
   const base = { tx: log.transactionHash, logIndex: parseInt(log.logIndex, 16), block: parseInt(log.blockNumber, 16) };
   if (t0 === MARKET_TOPIC && (log.data.length - 2) / 64 >= 17) {

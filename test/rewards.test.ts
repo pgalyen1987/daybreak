@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import fixtures from "./fixtures-reward-logs.json";
 import twins from "./fixtures-twin-logs.json";
-import { blockTime, chunks, decodeReward, firstFullDay, logRanges, pairTwins, readerStale, zoraUsd, type RawLog } from "@/lib/rewards";
+import { addressList, blockTime, chunks, decodeReward as decode, firstFullDay, logRanges, pairTwins, readerStale, zoraUsd, HOOKS_BEFORE_REGISTRY, type RawLog } from "@/lib/rewards";
 
 const setWord = (hex: string, i: number, value: bigint) => hex.slice(0, 2 + i * 64) + value.toString(16).padStart(64, "0") + hex.slice(2 + (i + 1) * 64);
+// the hooks that emitted the fixtures, all in Zora's hook registry when read on 2026-10-05
+const HOOKS = new Set([fixtures.market.address, fixtures.creator.address, twins.market.address]);
+const decodeReward = (log: RawLog) => decode(log, HOOKS);
 const at = (log: RawLog, logIndex: number, tx = log.transactionHash): RawLog => ({ ...log, logIndex: "0x" + logIndex.toString(16), transactionHash: tx });
 
 // Two real logs from one Base trade (tx 0x53f27c…f195, block 51510975).
@@ -34,6 +37,15 @@ describe("decodeReward", () => {
   });
   it("ignores other events", () => {
     expect(decodeReward({ ...fixtures.market, topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"] })).toBeNull();
+  });
+  it("drops the same event from a contract that isn't a Zora hook", () => {
+    // anyone can emit this topic naming any coin, wallet and amount, for a cent of gas
+    const forged = { ...fixtures.market, address: "0x" + "de".repeat(20), data: setWord(fixtures.market.data, 7, 1000n * 10n ** 18n) };
+    expect(decodeReward(forged)).toBeNull();
+    expect(decodeReward({ ...twins.creator, address: "0x" + "de".repeat(20) })).toBeNull();
+    // the emitter is compared lowercased
+    expect(decodeReward({ ...fixtures.market, address: fixtures.market.address.toUpperCase().replace("0X", "0x") })).not.toBeNull();
+    expect(HOOKS_BEFORE_REGISTRY.every((h) => /^0x[0-9a-f]{40}$/.test(h))).toBe(true);
   });
 });
 
@@ -112,5 +124,18 @@ describe("firstFullDay", () => {
   it("is the day after the one the first block read falls in", () => {
     expect(firstFullDay(Date.UTC(2026, 9, 5, 13, 51, 17))).toBe("2026-10-06");
     expect(firstFullDay(Date.UTC(2026, 9, 31, 23, 59))).toBe("2026-11-01");
+  });
+});
+
+describe("addressList", () => {
+  it("reads getHookAddresses()'s address[] reply", () => {
+    const hooks = ["0xa1ebdd5ca6470bbd67114331387f2dda7bfad040", "0xc8d077444625eb300a427a6dfb2b1dbf9b159040", "0x0469a4bd3724dc86c9542f4694c976da13c450c0"];
+    const reply = "0x" + (32).toString(16).padStart(64, "0") + hooks.length.toString(16).padStart(64, "0") + hooks.map((h) => h.slice(2).padStart(64, "0")).join("");
+    expect(addressList(reply)).toEqual(hooks);
+  });
+  it("reads a short or empty reply as no addresses", () => {
+    expect(addressList("0x")).toEqual([]);
+    expect(addressList("0x" + (32).toString(16).padStart(64, "0") + "0".repeat(64))).toEqual([]);
+    expect(addressList("0x" + (32).toString(16).padStart(64, "0") + (2).toString(16).padStart(64, "0") + "ab".repeat(32))).toEqual([]); // says 2, holds 1
   });
 });
