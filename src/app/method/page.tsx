@@ -15,7 +15,7 @@ export default function Method() {
       <p>Everything here comes from Zora&apos;s public coins API: coin stats, holder lists, individual trades, and the follower counts of the social accounts each creator has linked on Zora. Nothing is scraped from other platforms.</p>
 
       <h2>Which coins</h2>
-      <p>Creator coins that appear in Zora&apos;s most valuable, trending, or top-volume creator lists. Stats refresh every hour; follower counts refresh about once a day.</p>
+      <p>Creator coins that appear in Zora&apos;s most valuable, trending, or top-volume creator lists. Stats refresh every hour. Follower counts are the ones Zora has on file for each linked account, and Zora doesn&apos;t keep them current: we re-read them daily, and of the 447 creators read on two or more days between Sep 18 and Oct 5, 2026, not one count changed. Treat them as a rough size.</p>
 
       <h2>Audience</h2>
       <p>A creator&apos;s largest single linked account. The same fans often follow on several platforms, so adding the counts together would overstate reach.</p>
@@ -43,7 +43,7 @@ export default function Method() {
 
       <h2>Limits</h2>
       <ul>
-        <li>Follower counts are whatever Zora has on file for the linked account.</li>
+        <li>Follower counts are whatever Zora has on file for the linked account, and they don&apos;t change (see Which coins).</li>
         <li>Holder counts include wallets of any size, including dust.</li>
         <li>This is analytics, not advice. A gap means an audience hasn&apos;t bought in; it doesn&apos;t mean it will.</li>
       </ul>

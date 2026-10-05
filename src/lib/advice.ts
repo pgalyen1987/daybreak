@@ -12,7 +12,7 @@ export type CheckInput = {
   holders: number | null;     // null = the profile has no creator coin
   medianPer1000: number;      // holders per 1,000 followers, median across tracked coins
   // the same median among creators whose biggest audience is on each platform: audiences convert very
-  // differently (Farcaster-led ~27 per 1,000 vs X-led ~7), so a creator is compared with their own kind
+  // differently by platform (several-fold apart in the tracked data), so a creator is compared with their own kind
   platformMedians?: Partial<Record<string, { median: number; n: number }>>;
 };
 
