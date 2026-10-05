@@ -6,6 +6,11 @@
 //                        doppler, then (currency, coin) amounts for each of the five, no indexed args
 //   creator 0xea924732…  coin (indexed), currency, creator, protocol, creator amount, protocol amount
 //
+// A creator coin's hook announces each payout twice: the market event, then at logIndex+1 a creator
+// event repeating the creator and protocol amounts, for ONE transfer (tx 0x720b9ac6…0b27: one ZORA
+// transfer of 0.064019 to the creator at log 335, market event 338, creator event 339). pairTwins()
+// keeps one. Older creator-coin hooks emit the creator event alone, and that one counts.
+//
 // The hooks have several deployed versions, so logs are fetched by event topic across all
 // addresses. Pure decoding and aggregation here; scripts/collect.ts fetches and stores.
 
@@ -58,6 +63,27 @@ export function decodeReward(log: RawLog): Reward | null {
     };
   }
   return null;
+}
+
+/** Each payout once, in chain order. A creator event that repeats the market event logged just before
+ *  it (same tx and coin, the next log, same creator and amount) is the same payment announced twice,
+ *  and is dropped. A creator event on its own (older hooks) stays. */
+export function pairTwins(rs: Reward[]): Reward[] {
+  const out: Reward[] = [];
+  for (const r of [...rs].sort((a, b) => a.block - b.block || a.logIndex - b.logIndex)) {
+    const prev = out[out.length - 1];
+    if (r.kind === "creator" && prev && prev.kind === "market" && prev.tx === r.tx && prev.coin === r.coin && prev.logIndex === r.logIndex - 1
+      && prev.currency === r.currency && prev.recipients.creator === r.recipients.creator && prev.amounts.creator === r.amounts.creator) continue;
+    out.push(r);
+  }
+  return out;
+}
+
+/** The first UTC day (YYYY-MM-DD) whose totals a collector that starts reading at `ts` writes in full:
+ *  the day after the one `ts` falls in, which earlier runs may have written to as well. */
+export function firstFullDay(ts: number): string {
+  const d = new Date(ts);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString().slice(0, 10);
 }
 
 /** ZORA's dollar price from any coin priced against it: USD per coin / ZORA per coin. */

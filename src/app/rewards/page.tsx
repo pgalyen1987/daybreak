@@ -4,7 +4,7 @@ import { StackedBars } from "@/components/charts";
 import { miniappMeta } from "@/lib/embed";
 import { int, pct, usd } from "@/lib/format";
 import { readerStale, ROLE_LABEL, ROLES, type Role } from "@/lib/rewards";
-import { rewardsReadTo, rewardsSummary, type Earner } from "@/lib/zora-queries";
+import { rewardsCountedFrom, rewardsReadTo, rewardsSummary, type Earner } from "@/lib/zora-queries";
 import { CoinAvatar } from "@/components/CoinAvatar";
 
 export const metadata: Metadata = {
@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 
 const COLOR: Record<Role, string> = { creator: "var(--s-creator)", platform: "var(--s-platform)", trade: "var(--s-trade)", protocol: "var(--s-protocol)", doppler: "var(--s-doppler)" };
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+const dayText = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 const TO: Record<Role, string> = { creator: "to creators", platform: "to platform referrers", trade: "to trade referrers", protocol: "to the protocol (Zora)", doppler: "to Doppler" };
 
 function Earners({ title, rows, note }: { title: string; rows: Earner[]; note: string }) {
@@ -46,13 +47,14 @@ function Earners({ title, rows, note }: { title: string; rows: Earner[]; note: s
 
 export default function RewardsPage() {
   const s = rewardsSummary(7);
+  const countedFrom = rewardsCountedFrom();
   const readTo = rewardsReadTo();
   const readText = readTo == null ? null : new Date(readTo).toISOString().slice(0, 16).replace("T", " ") + " UTC";
   const behind = readerStale(readTo, Date.now());
   // until a full week is recorded, every "7 days" label would overstate the window
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
   const span = s?.earliest && s.earliest > weekAgo
-    ? `since ${new Date(s.earliest + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}` : "7 days";
+    ? `since ${dayText(s.earliest)}` : "7 days";
   return (
     <>
       <section>
@@ -64,7 +66,12 @@ export default function RewardsPage() {
           Doppler, the protocol behind the coins' liquidity. Every Zora coin, read from Base every hour.
         </p>
       </section>
-      {!s ? <p className="panel note">The first payouts arrive with the next hourly update.</p> : (
+      {!s ? (
+        <p className="panel note">
+          {countedFrom ? `Totals count from ${dayText(countedFrom)} (UTC) and appear once that day's payouts are read.` : "Totals start with the next hourly update."}{" "}
+          Earlier days counted each creator-coin payout twice, so they aren&apos;t shown.
+        </p>
+      ) : (
         <>
           <section className="panel">
             <div className="facts">
@@ -92,9 +99,11 @@ export default function RewardsPage() {
             <div className="panel">
               <h2>How this is counted</h2>
               <p className="note">
-                Two events carry the payouts: one per trade with the five-way split, and one for the creator and protocol shares of
-                creator-coin trades. Both are read for every Zora coin, not only the creators on the <Link href="/">gap map</Link>. Wallets show their Zora
+                Two events carry the payouts: one per trade with the five-way split, and on creator-coin trades one with the creator and
+                protocol shares. A creator coin&apos;s contract sends both for a single payment, so a second event that repeats the first
+                counts once. Both are read for every Zora coin, not only the creators on the <Link href="/">gap map</Link>. Wallets show their Zora
                 handle when they have a profile.
+                {countedFrom && <> Days before {dayText(countedFrom)} counted that repeat as a second payment, so they aren&apos;t shown.</>}
               </p>
             </div>
           </section>

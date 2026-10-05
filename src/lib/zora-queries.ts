@@ -9,10 +9,24 @@ const has = (table: string) => !!open().prepare("SELECT 1 FROM sqlite_master WHE
 
 export type Earner = { address: string; name: string | null; usd: number; events: number; zora?: boolean; image?: string | null };
 
+/** The first UTC day whose payout totals count each payout once (see the 'rewards_counted_from' cursor
+ *  in scripts/collect.ts), or null before that collector's first run. Earlier days overstate creator
+ *  pay, because a creator coin's payout was counted twice, and are never read. */
+export function rewardsCountedFrom(): string | null {
+  if (!has("cursors")) return null;
+  const c = open().prepare("SELECT value FROM cursors WHERE name = 'rewards_counted_from'").get() as { value: number } | undefined;
+  return c ? new Date(c.value).toISOString().slice(0, 10) : null;
+}
+
+/** The later of two YYYY-MM-DD days. */
+const later = (a: string, b: string) => (a > b ? a : b);
+
 export function rewardsSummary(days = 7) {
   const d = open();
   if (!has("reward_role_daily")) return null;
-  const sinceDay = new Date(Date.now() - days * DAY).toISOString().slice(0, 10);
+  const from = rewardsCountedFrom();
+  if (!from) return null;
+  const sinceDay = later(new Date(Date.now() - days * DAY).toISOString().slice(0, 10), from);
   const rows = d.prepare("SELECT role, SUM(usd) AS usd, SUM(events) AS events, SUM(unpriced) AS unpriced FROM reward_role_daily WHERE day >= ? GROUP BY role")
     .all(sinceDay) as { role: Role; usd: number; events: number; unpriced: number }[];
   if (!rows.length) return null;
@@ -34,10 +48,10 @@ export function rewardsSummary(days = 7) {
     .map((e) => ({ ...e, zora: e.address === zora, name: (named.get(e.address, e.address) as { name: string | null } | undefined)?.name ?? null,
       image: (art.get(e.address) as { image: string | null } | undefined)?.image ?? null }));
   const daily = d.prepare("SELECT day, role, usd FROM reward_role_daily WHERE day >= ? ORDER BY day")
-    .all(new Date(Date.now() - 30 * DAY).toISOString().slice(0, 10)) as { day: string; role: Role; usd: number }[];
+    .all(later(new Date(Date.now() - 30 * DAY).toISOString().slice(0, 10), from)) as { day: string; role: Role; usd: number }[];
   const byDay = new Map<string, Record<string, number>>();
   for (const r of daily) byDay.set(r.day, { ...(byDay.get(r.day) || {}), [r.role]: r.usd });
-  const earliest = (d.prepare("SELECT MIN(day) AS day FROM reward_role_daily").get() as { day: string | null }).day;
+  const earliest = (d.prepare("SELECT MIN(day) AS day FROM reward_role_daily WHERE day >= ?").get(from) as { day: string | null }).day;
   return {
     days, payouts, priced, byRole, earliest,
     total: ROLES.reduce((a, r) => a + byRole[r], 0),
@@ -59,11 +73,13 @@ export function rewardsReadTo(): number | null {
 /** What one coin's trades paid its creator over the last `days` days (priced payouts only). */
 export function coinCreatorEarnings(address: string, days = 7) {
   if (!has("coin_reward_daily")) return null;
-  const from = new Date(Date.now() - days * DAY).toISOString().slice(0, 10);
+  const counted = rewardsCountedFrom();
+  if (!counted) return null;
+  const from = later(new Date(Date.now() - days * DAY).toISOString().slice(0, 10), counted);
   const r = open().prepare(`SELECT SUM(events) AS n, SUM(creator_usd) AS usd, SUM(unpriced) AS unpriced FROM coin_reward_daily WHERE coin = ? AND day >= ?`)
     .get(address, from) as { n: number | null; usd: number | null; unpriced: number | null };
-  // payouts have only been recorded since the first rewards run: a "7 days" label would overstate the window
-  const first = (open().prepare("SELECT MIN(day) AS day FROM coin_reward_daily").get() as { day: string | null }).day;
+  // payouts are only counted from `counted` on: a "7 days" label would overstate the window
+  const first = (open().prepare("SELECT MIN(day) AS day FROM coin_reward_daily WHERE day >= ?").get(counted) as { day: string | null }).day;
   return r.n ? { payouts: r.n, usd: r.usd || 0, unpriced: r.unpriced || 0, since: first && first > from ? first : null } : null;
 }
 

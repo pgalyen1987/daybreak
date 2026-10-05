@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import fixtures from "./fixtures-reward-logs.json";
-import { blockTime, chunks, decodeReward, logRanges, readerStale, zoraUsd } from "@/lib/rewards";
+import twins from "./fixtures-twin-logs.json";
+import { blockTime, chunks, decodeReward, firstFullDay, logRanges, pairTwins, readerStale, zoraUsd, type RawLog } from "@/lib/rewards";
+
+const setWord = (hex: string, i: number, value: bigint) => hex.slice(0, 2 + i * 64) + value.toString(16).padStart(64, "0") + hex.slice(2 + (i + 1) * 64);
+const at = (log: RawLog, logIndex: number, tx = log.transactionHash): RawLog => ({ ...log, logIndex: "0x" + logIndex.toString(16), transactionHash: tx });
 
 // Two real logs from one Base trade (tx 0x53f27c…f195, block 51510975).
 describe("decodeReward", () => {
@@ -71,5 +75,42 @@ describe("readerStale", () => {
   });
   it("lets a normal hourly lag pass", () => {
     expect(readerStale(now - 70 * 60_000, now)).toBe(false);
+  });
+});
+
+// One Base trade on creator coin 0x0246825b…dfb8f3 (tx 0x2386e981…dc8e): the market event (log 510) and
+// the creator event (log 511) both announce the creator's share; the creator got ONE transfer of 8.966 ZORA.
+describe("pairTwins", () => {
+  const market = decodeReward(twins.market)!, creator = decodeReward(twins.creator)!;
+  it("counts a creator coin's twice-announced payout once", () => {
+    const out = pairTwins([creator, market]); // arrival order doesn't matter: chain order does
+    expect(out).toHaveLength(1);
+    expect(out[0].kind).toBe("market");
+    expect(out[0].amounts.creator).toBeCloseTo(8.966120, 5);
+    expect(BigInt(twins.transfersToCreator[0].amountWei)).toBe(8966120514414864690n); // one transfer, the payout
+    // the protocol share, announced in both events, is counted once too
+    expect(out.reduce((a, p) => a + p.amounts.protocol, 0)).toBe(market.amounts.protocol);
+  });
+  it("keeps a creator event on its own (older hooks) and a market event on its own", () => {
+    expect(pairTwins([creator])).toHaveLength(1);
+    expect(pairTwins([market])).toHaveLength(1);
+    // the main fixtures: one trade paying a post (log 548) and a creator coin whose hook sent the creator event alone (log 495)
+    expect(pairTwins([decodeReward(fixtures.market)!, decodeReward(fixtures.creator)!])).toHaveLength(2);
+  });
+  it("two market events for one coin in one tx, the second with its twin, are two payouts", () => {
+    const out = pairTwins([decodeReward(at(twins.market, 508))!, decodeReward(at(twins.market, 510))!, decodeReward(at(twins.creator, 511))!]);
+    expect(out.map((p) => p.logIndex)).toEqual([508, 510]);
+  });
+  it("a creator event that differs from the market event before it is its own payout", () => {
+    expect(pairTwins([market, decodeReward({ ...twins.creator, data: setWord(twins.creator.data, 3, 1n) })!])).toHaveLength(2); // another amount
+    expect(pairTwins([market, decodeReward(at(twins.creator, 512))!])).toHaveLength(2); // not the next log
+    expect(pairTwins([market, decodeReward(at(twins.creator, 511, "0x" + "ab".repeat(32)))!])).toHaveLength(2); // another tx
+  });
+});
+
+describe("firstFullDay", () => {
+  it("is the day after the one the first block read falls in", () => {
+    expect(firstFullDay(Date.UTC(2026, 9, 5, 13, 51, 17))).toBe("2026-10-06");
+    expect(firstFullDay(Date.UTC(2026, 9, 31, 23, 59))).toBe("2026-11-01");
   });
 });

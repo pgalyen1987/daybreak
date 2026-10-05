@@ -8,7 +8,7 @@
 //   PAGES_PER_LIST (default 10 -> up to 200 coins per list), CONCURRENCY (default 3),
 //   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC).
 import { open } from "../src/lib/db";
-import { blockTime, decodeReward, logRanges, ROLES, USDC, ZORA_TOKEN, MARKET_TOPIC, CREATOR_TOPIC, zoraUsd, type RawLog, type Reward } from "../src/lib/rewards";
+import { blockTime, decodeReward, firstFullDay, logRanges, pairTwins, ROLES, USDC, ZORA_TOKEN, MARKET_TOPIC, CREATOR_TOPIC, zoraUsd, type RawLog, type Reward } from "../src/lib/rewards";
 import { coinQuote, holders, pool, profileHandle, profileSocials, recentSwaps, trendUniverse, universe } from "../src/lib/zora";
 import { thumb } from "../src/lib/images";
 
@@ -211,7 +211,9 @@ async function rewards() {
       last = b;
     } catch (e) { errors++; log("rewards error", a, b, String(e).slice(0, 120)); break; } // resume from here next run
   }
-  const prices = await unitPrices([...new Set(decoded.map((r) => r.currency))]);
+  // a creator coin's payout is announced twice for one transfer: count it once
+  const payouts = pairTwins(decoded);
+  const prices = await unitPrices([...new Set(payouts.map((r) => r.currency))]);
   const ins = db.prepare(`INSERT OR IGNORE INTO rewards (tx, log_index, block, ts, kind, coin, currency, creator, platform, trade, protocol, doppler,
       creator_amt, platform_amt, trade_amt, protocol_amt, doppler_amt, unit_usd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const daily = db.prepare(`INSERT INTO reward_daily (day, role, recipient, usd, events, unpriced) VALUES (?, ?, ?, ?, 1, ?)
@@ -222,7 +224,7 @@ async function rewards() {
       ON CONFLICT(day, coin) DO UPDATE SET creator_usd = creator_usd + excluded.creator_usd, events = events + 1, unpriced = unpriced + excluded.unpriced`);
   let added = 0;
   db.transaction(() => {
-    for (const r of decoded) {
+    for (const r of payouts) {
       const ts = blockTime(r.block, head, refTs), unit = prices.get(r.currency) ?? null;
       const x = ins.run(r.tx, r.logIndex, r.block, ts, r.kind, r.coin, r.currency, r.recipients.creator, r.recipients.platform, r.recipients.trade,
         r.recipients.protocol, r.recipients.doppler, r.amounts.creator, r.amounts.platform, r.amounts.trade, r.amounts.protocol, r.amounts.doppler, unit);
@@ -239,6 +241,9 @@ async function rewards() {
       }
     }
     db.prepare("INSERT OR REPLACE INTO cursors (name, value) VALUES ('rewards', ?)").run(last);
+    // Totals written before this collector counted each creator-coin payout twice. The pages count
+    // from the first UTC day it writes in full; earlier days stay stored but unread until they age out.
+    if (last > start) db.prepare("INSERT OR IGNORE INTO cursors (name, value) VALUES ('rewards_counted_from', ?)").run(Date.parse(firstFullDay(blockTime(start + 1, head, refTs)) + "T00:00:00Z"));
     // when the last block read was made: /rewards prints it, and scripts/rewards-fresh.ts fails the run when it falls behind
     db.prepare("INSERT OR REPLACE INTO cursors (name, value) VALUES ('rewards_ts', ?)").run(blockTime(last, head, refTs));
   })();
