@@ -12,7 +12,7 @@ export default function Method() {
         <p className="kicker">Method</p>
         <h1>How the numbers work</h1>
       </div>
-      <p>Everything here comes from Zora&apos;s public coins API: coin stats, holder lists, individual trades, and the follower counts of the social accounts each creator has linked on Zora. Nothing is scraped from other platforms.</p>
+      <p>Coin stats, holder lists, individual trades and the follower counts of the social accounts each creator has linked on Zora come from Zora&apos;s public coins API. Trading rewards come from the events Zora&apos;s coin contracts write on Base, read from Base&apos;s public node, with ETH priced by Chainlink&apos;s feed there. Nothing is scraped from other platforms.</p>
 
       <h2>Which coins</h2>
       <p>Creator coins that appear in Zora&apos;s most valuable, trending, or top-volume creator lists. Stats refresh every hour. Follower counts are the ones Zora has on file for each linked account, and Zora doesn&apos;t keep them current: we re-read them daily, and of the 447 creators read on two or more days between Sep 18 and Oct 5, 2026, not one count changed. Treat them as a rough size.</p>

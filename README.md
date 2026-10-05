@@ -13,7 +13,8 @@ Free analytics for Zora creator coins: **https://daybreak.rebelstudiossoftware.c
   filters by platform and minimum holders.
 - **Rewards.** Who Zora pays on every trade, read from Base: the split between creators, the
   apps that created and routed the coins, the protocol and Doppler, per day, with the top earners.
-  Both reward events are decoded (`CoinMarketRewardsV4` and `CreatorCoinRewards`).
+  Both reward events are decoded (`CoinMarketRewardsV4` and `CreatorCoinRewards`), only from Zora's
+  own hooks, and a creator coin's payout, which its hook announces in both, is counted once.
 - **Tags.** Zora's tags (trend coins): what trades, what gains holders, and which tags share them.
 - **Coin pages.** Holders over time, day-over-day holder churn, daily buy and sell volume,
   trading by weekday and hour, and how concentrated the supply is (the Uniswap v4 pool that
@@ -23,7 +24,8 @@ Also a Farcaster mini app (coin pages and the site open in the feed) and install
 Built on the same team's open-source [Zora coins SDKs](https://github.com/pgalyen1987/zora-coins-sdks)
 ([Python](https://github.com/pgalyen1987/zora-coins-py)).
 
-All numbers come from the public Zora coins API. The [method page](https://daybreak.rebelstudiossoftware.com/method/)
+Coin, holder, trade and follower numbers come from the public Zora coins API; trading rewards come from Zora's
+contract events on Base. The [method page](https://daybreak.rebelstudiossoftware.com/method/)
 explains each one. Not financial advice, and not affiliated with Zora.
 
 ## How it runs
@@ -35,7 +37,9 @@ There is no server. A GitHub Actions workflow runs every hour:
    reward payout from Base's logs, Zora's tags, and once a day each coin's holder set,
 3. prunes old rows and saves the database back to the release,
 4. builds the site as static files (`next build` with `output: "export"`) and publishes it
-   to GitHub Pages.
+   to GitHub Pages,
+5. fails the run, after publishing, if reward payouts are more than 3 hours behind Base
+   (`scripts/rewards-fresh.ts`), so a stuck reader shows red instead of passing quietly.
 
 ## Develop
 
