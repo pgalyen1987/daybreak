@@ -11,6 +11,6 @@ export function generateStaticParams() {
   return allCoins().map((c) => ({ address: c.address }));
 }
 
-export function GET(_req: Request, { params }: { params: { address: string } }) {
-  return coinCard(params.address, 800);
+export async function GET(_req: Request, { params }: { params: Promise<{ address: string }> }) {
+  return coinCard((await params).address, 800);
 }

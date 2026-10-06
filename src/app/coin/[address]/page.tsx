@@ -15,8 +15,8 @@ export function generateStaticParams() {
   return allCoins().map((c) => ({ address: c.address }));
 }
 
-export function generateMetadata({ params }: { params: { address: string } }): Metadata {
-  const c = coinByAddress(params.address);
+export async function generateMetadata({ params }: { params: Promise<{ address: string }> }): Promise<Metadata> {
+  const c = coinByAddress((await params).address);
   if (!c) return { title: "Coin not found" };
   const name = `@${c.handle ?? c.symbol}`;
   const card = `/coin/${c.address}/card.png`;
@@ -31,8 +31,8 @@ export function generateMetadata({ params }: { params: { address: string } }): M
   };
 }
 
-export default function CoinPage({ params }: { params: { address: string } }) {
-  const c = coinByAddress(params.address);
+export default async function CoinPage({ params }: { params: Promise<{ address: string }> }) {
+  const c = coinByAddress((await params).address);
   if (!c) notFound();
   const lead = leads(1).find((l) => l.address === c.address);
   const aud = reach(c.socials);
