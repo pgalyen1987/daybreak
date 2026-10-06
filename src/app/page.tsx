@@ -30,7 +30,7 @@ export default function Home() {
         <p className="kicker">The gap map</p>
         <h1>Where the audience is, and where the holders aren&apos;t</h1>
         <p className="lede">
-          Every Zora creator with a linked audience of 1,000+ and at least {MIN_HOLDERS} holders. Dots low and to the right have big
+          Every creator in Zora&apos;s top lists with a linked audience of 1,000+ and at least {MIN_HOLDERS} holders. Dots low and to the right have big
           followings and few holders: audiences that haven&apos;t found the coin yet. The ten largest gaps are highlighted.
         </p>
         <p className="lede">Are you a creator? <Link href="/check/">Check your own coin</Link>: it works for any Zora profile and says what to do next.

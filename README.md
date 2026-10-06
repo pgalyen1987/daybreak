@@ -2,7 +2,7 @@
 
 Free analytics for Zora creator coins: **https://daybreak.rebelstudiossoftware.com**
 
-![Daybreak's gap map: every Zora creator's followers against their coin's holders](public/og.png)
+![Daybreak's gap map: the followers of the creators in Zora's top lists against their coins' holders](public/og.png)
 
 - **Check your coin.** Any Zora handle, not only the coins tracked here: linked followers next to
   holders, how that compares with Zora's top creators, the next step that fits those numbers, and
