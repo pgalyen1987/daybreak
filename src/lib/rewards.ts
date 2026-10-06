@@ -70,6 +70,28 @@ export function addressList(hex: string): string[] {
   return Array.from({ length: n }, (_, i) => "0x" + d.slice(128 + i * 64 + 24, 128 + (i + 1) * 64).toLowerCase());
 }
 
+/** The hook registry's address from zoraHookRegistry()'s one-word reply, lowercased, or null when the
+ *  reply isn't an address word (a revert, an empty reply) or names the zero address. */
+export function registryAddress(reply: string): string | null {
+  if (!/^0x0{24}[0-9a-f]{40}$/i.test(reply)) return null;
+  const a = "0x" + reply.slice(26).toLowerCase();
+  return /^0x0{40}$/.test(a) ? null : a;
+}
+
+/** The contracts whose payout events count: the hooks Zora's registry lists plus the older ones it leaves
+ *  out, lowercased. Null when the registry listed none: the run then reads nothing, since without the
+ *  list every emitter, forged ones included, would look the same. */
+export function trustedEmitters(listed: string[]): Set<string> | null {
+  return listed.length ? new Set([...listed.map((a) => a.toLowerCase()), ...HOOKS_BEFORE_REGISTRY]) : null;
+}
+
+/** A rewards run failed when it had block ranges to read and got through none, as every run did from
+ *  14:50 UTC on 2026-10-05. It then exits 1 so the workflow's warning fires. An error after some reads
+ *  (a later range, a name lookup) doesn't fail the run: the cursor moved and the next run resumes there. */
+export function readFailed(run: { ranges: number; from: number; to: number }): boolean {
+  return run.ranges > 0 && run.to === run.from;
+}
+
 /** A payout from a log, or null when it isn't one: another event, too short, or emitted by a contract
  *  that isn't one of Zora's hooks (`hooks`, lowercased). */
 export function decodeReward(log: RawLog, hooks: Set<string>): Reward | null {

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import fixtures from "./fixtures-reward-logs.json";
 import twins from "./fixtures-twin-logs.json";
-import { addressList, blockTime, chunks, decodeReward as decode, firstFullDay, logRanges, pairTwins, parseLatestRound, readerStale, zoraUsd, HOOKS_BEFORE_REGISTRY, WETH, type RawLog } from "@/lib/rewards";
+import {
+  addressList, blockTime, chunks, decodeReward as decode, firstFullDay, logRanges, pairTwins, parseLatestRound, readerStale, readFailed, registryAddress,
+  trustedEmitters, zoraUsd, HOOKS_BEFORE_REGISTRY, WETH, type RawLog,
+} from "@/lib/rewards";
 
 const setWord = (hex: string, i: number, value: bigint | string) =>
   hex.slice(0, 2 + i * 64) + (typeof value === "bigint" ? value.toString(16) : value.replace(/^0x/, "")).padStart(64, "0") + hex.slice(2 + (i + 1) * 64);
@@ -145,6 +148,42 @@ describe("addressList", () => {
     expect(addressList("0x")).toEqual([]);
     expect(addressList("0x" + (32).toString(16).padStart(64, "0") + "0".repeat(64))).toEqual([]);
     expect(addressList("0x" + (32).toString(16).padStart(64, "0") + (2).toString(16).padStart(64, "0") + "ab".repeat(32))).toEqual([]); // says 2, holds 1
+  });
+});
+
+// The collector reads nothing, and exits 1, unless the factory names a registry that lists hooks.
+describe("the hook list a run trusts", () => {
+  const REGISTRY = "0x777777c4c14b133858c3982d41dbf02509fc18d7"; // what the factory named on 2026-10-05
+  it("takes the registry from the factory's one-word reply", () => {
+    expect(registryAddress("0x" + REGISTRY.slice(2).toUpperCase().padStart(64, "0"))).toBe(REGISTRY);
+  });
+  it("refuses a zero, empty, reverted or malformed reply, so the run reads nothing", () => {
+    expect(registryAddress("0x" + "0".repeat(64))).toBeNull();
+    expect(registryAddress("0x")).toBeNull();
+    expect(registryAddress("0x08c379a0" + "0".repeat(120))).toBeNull(); // an Error(string) revert
+    expect(registryAddress("0x" + "f".repeat(64))).toBeNull(); // not an address word
+  });
+  it("adds the older hooks to the registry's list, lowercased", () => {
+    const trusted = trustedEmitters(["0x0469A4BD3724DC86C9542F4694C976DA13C450C0"])!;
+    expect(trusted.has("0x0469a4bd3724dc86c9542f4694c976da13c450c0")).toBe(true);
+    expect(HOOKS_BEFORE_REGISTRY.every((h) => trusted.has(h))).toBe(true);
+    expect(trusted.size).toBe(1 + HOOKS_BEFORE_REGISTRY.length);
+  });
+  it("trusts nothing when the registry lists no hooks, rather than only the older ones", () => {
+    expect(trustedEmitters([])).toBeNull();
+  });
+});
+
+describe("readFailed", () => {
+  it("fails the run that had ranges to read and got through none (every run from 14:50 UTC on 10-05)", () => {
+    // the 06:47 UTC run on 10-06: '0 new payouts from 21 block ranges (to 52209467)', cursor unmoved
+    expect(readFailed({ ranges: 21, from: 52209467, to: 52209467 })).toBe(true);
+  });
+  it("passes a run that moved the cursor, even if a later range or a name lookup failed", () => {
+    expect(readFailed({ ranges: 21, from: 52209467, to: 52209967 })).toBe(false);
+  });
+  it("passes a run with nothing new to read", () => {
+    expect(readFailed({ ranges: 0, from: 52209467, to: 52209467 })).toBe(false);
   });
 });
 

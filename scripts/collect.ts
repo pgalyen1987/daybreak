@@ -9,9 +9,9 @@
 //   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC).
 import { open } from "../src/lib/db";
 import {
-  addressList, blockTime, decodeReward, firstFullDay, logRanges, pairTwins, parseLatestRound, zoraUsd, CHAINLINK_ETH_USD, COIN_FACTORY,
-  CREATOR_TOPIC, ETH, GET_HOOK_ADDRESSES, HOOKS_BEFORE_REGISTRY, LATEST_ROUND_DATA, MARKET_TOPIC, ROLES, USDC, WETH, ZORA_HOOK_REGISTRY,
-  ZORA_TOKEN, type RawLog, type Reward,
+  addressList, blockTime, decodeReward, firstFullDay, logRanges, pairTwins, parseLatestRound, readFailed, registryAddress, trustedEmitters,
+  zoraUsd, CHAINLINK_ETH_USD, COIN_FACTORY, CREATOR_TOPIC, ETH, GET_HOOK_ADDRESSES, LATEST_ROUND_DATA, MARKET_TOPIC, ROLES, USDC, WETH,
+  ZORA_HOOK_REGISTRY, ZORA_TOKEN, type RawLog, type Reward,
 } from "../src/lib/rewards";
 import { coinQuote, holders, pool, profileHandle, profileSocials, recentSwaps, trendUniverse, universe } from "../src/lib/zora";
 import { thumb } from "../src/lib/images";
@@ -166,11 +166,11 @@ const hex = (n: number) => "0x" + n.toString(16);
  *  hooks the registry leaves out. Throws when the list can't be read or comes back empty. */
 async function zoraHooks(): Promise<Set<string>> {
   const named = await rpc<string>("eth_call", [{ to: COIN_FACTORY, data: ZORA_HOOK_REGISTRY }, "latest"]);
-  const registry = /^0x0{24}[0-9a-f]{40}$/i.test(named) ? "0x" + named.slice(26).toLowerCase() : null;
-  if (!registry || /^0x0{40}$/.test(registry)) throw new Error(`the coin factory named no hook registry (${String(named).slice(0, 80)})`);
-  const hooks = addressList(await rpc<string>("eth_call", [{ to: registry, data: GET_HOOK_ADDRESSES }, "latest"]));
-  if (!hooks.length) throw new Error(`Zora's hook registry ${registry} listed no hooks`);
-  return new Set([...hooks, ...HOOKS_BEFORE_REGISTRY]);
+  const registry = registryAddress(named);
+  if (!registry) throw new Error(`the coin factory named no hook registry (${String(named).slice(0, 80)})`);
+  const hooks = trustedEmitters(addressList(await rpc<string>("eth_call", [{ to: registry, data: GET_HOOK_ADDRESSES }, "latest"])));
+  if (!hooks) throw new Error(`Zora's hook registry ${registry} listed no hooks`);
+  return hooks;
 }
 
 /** USD per unit of each currency: USDC is 1, ETH and WETH from Chainlink's ETH/USD on Base, ZORA via any
@@ -298,7 +298,7 @@ async function rewards() {
   endRun(run, added, errors, `blocks to ${last}${note}`);
   log(`rewards: ${added} new payouts from ${ranges.length} block ranges (to ${last}), ${[...prices.values()].filter((v) => v == null).length} currencies unpriced, ${want.length} names, ${errors} errors${note}`);
   // a run that read nothing exits non-zero, so the workflow's warning fires instead of a quiet pass
-  if (errors && last === start && ranges.length) process.exitCode = 1;
+  if (readFailed({ ranges: ranges.length, from: start, to: last })) process.exitCode = 1;
 }
 
 // --- trends (tags) ---------------------------------------------------------------------------
