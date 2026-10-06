@@ -281,8 +281,12 @@ async function rewards() {
     db.prepare("INSERT OR REPLACE INTO cursors (name, value) VALUES ('rewards_ts', ?)").run(blockTime(last, head, refTs));
   })();
 
-  // Handles for the wallets the page will list: the top earners of the week in each role
-  const since = new Date(now - 7 * 86_400_000).toISOString().slice(0, 10);
+  // Handles for the wallets the page will list: the top earners of the week in each role, over the
+  // days the page reads (from rewards_counted_from on)
+  const counted = db.prepare("SELECT value FROM cursors WHERE name = 'rewards_counted_from'").get() as { value: number } | undefined;
+  const weekAgo = new Date(now - 7 * 86_400_000).toISOString().slice(0, 10);
+  const countedDay = counted ? new Date(counted.value).toISOString().slice(0, 10) : weekAgo;
+  const since = countedDay > weekAgo ? countedDay : weekAgo;
   const top = db.prepare(`SELECT recipient FROM reward_daily WHERE day >= ? AND role = ? GROUP BY recipient ORDER BY SUM(usd) DESC LIMIT 15`);
   const known = db.prepare("SELECT 1 FROM names WHERE address = ? AND ts > ?");
   const want = [...new Set(["creator", "platform", "trade"].flatMap((role) => (top.all(since, role) as { recipient: string }[]).map((x) => x.recipient)))]
