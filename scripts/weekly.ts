@@ -8,11 +8,16 @@ import { rewardsSummary, tags } from "../src/lib/zora-queries";
 
 // The post's numbers must come from code that is live, i.e. on main. distribution-kit runs this from the
 // working checkout (~/SAAS/coin-lens), which sat on the unmerged audience-diff branch for weeks; that is
-// how "undefined followers" was posted on 09-28. Refuse rather than print numbers from unmerged code.
+// how "undefined followers" was posted on 09-28. Refuse unless HEAD is exactly origin/main (as last
+// fetched; an older main commit or a branch is refused) and no tracked file has uncommitted edits.
+const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+let notLive: string | null = null;
 try {
-  execFileSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { stdio: "ignore" });
-} catch {
-  console.error("weekly: this checkout's HEAD isn't part of origin/main, so its numbers could come from unmerged code; run it from main");
+  if (git("rev-parse", "HEAD") !== git("rev-parse", "origin/main")) notLive = "this checkout isn't at origin/main";
+  else if (git("status", "--porcelain", "--untracked-files=no")) notLive = "this checkout has uncommitted edits";
+} catch { notLive = "git couldn't say which commit this checkout runs"; }
+if (notLive) {
+  console.error(`weekly: ${notLive}, so its numbers could come from code that isn't live; run it from a clean checkout of main`);
   process.exit(1);
 }
 
