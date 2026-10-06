@@ -43,7 +43,7 @@ export function LeaderboardView({ boards, defaultMin, view }: { boards: Boards; 
       <section>
         <p className="kicker">Gap leaderboard</p>
         <h1>Creators whose audience hasn&apos;t found their coin</h1>
-        <p className="lede">{rows.length} creators with 1,000+ followers and at least {min} holders. Sort by any column; lower holders per 1,000 means more of the audience still to reach.</p>
+        <p className="lede">{rows.length} creators with 1,000+ followers and at least {min} holders. Sort by any column; lower holders per 1,000 means more of the audience still to reach. Follower counts are the ones Zora has on file, and Zora doesn&apos;t keep them current (<Link href="/method/">how we know</Link>).</p>
       </section>
       <div className="filters">
         <span>Audience on</span>

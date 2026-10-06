@@ -109,7 +109,7 @@ export default function RewardsPage() {
           </section>
         </>
       )}
-      <p className="note">Not financial advice. On-chain data from Base, prices from Zora&apos;s API; see <Link href="/method">method</Link>.</p>
+      <p className="note">Not financial advice. On-chain data from Base; prices from Zora&apos;s API, and for ETH from Chainlink on Base; see <Link href="/method">method</Link>.</p>
     </>
   );
 }

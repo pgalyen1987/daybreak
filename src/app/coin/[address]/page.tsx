@@ -86,7 +86,7 @@ export default async function CoinPage({ params }: { params: Promise<{ address: 
                 <div><b>{compact(aud.total)}</b>followers on {PLATFORM[aud.platform ?? ""]}</div>
                 <div><b>{((c.holders / aud.total) * 1000).toFixed(2)}</b>holders per 1,000 followers</div>
               </div>
-              <p className="note">Linked accounts: {socials.map(([k, v]) => `${PLATFORM[k]} ${compact(v)}`).join(" · ")}. Audience uses the largest one, since followers overlap.</p>
+              <p className="note">Linked accounts: {socials.map(([k, v]) => `${PLATFORM[k]} ${compact(v)}`).join(" · ")}. Audience uses the largest one, since followers overlap. The counts are the ones Zora has on file, and Zora doesn&apos;t keep them current (<Link href="/method/">how we know</Link>).</p>
             </>
           ) : <p className="note">This creator hasn&apos;t linked a social account on Zora, so there&apos;s no audience to compare with.</p>}
         </div>
