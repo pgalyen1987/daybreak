@@ -6,7 +6,8 @@
 //   tsx scripts/collect.ts trends      trend coins (Zora's tags): stats hourly, holder sets of the busiest daily
 // Environment: DATA_DIR (sqlite location), ZORA_API_KEY (optional, raises rate limits),
 //   PAGES_PER_LIST (default 10 -> up to 200 coins per list), CONCURRENCY (default 3),
-//   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (default Base's public RPC).
+//   HOLDER_MAX_COINS (holder sets fetched per run; default all), BASE_RPC_URL (tried before the free RPCs
+//   listed under rewards).
 import { open } from "../src/lib/db";
 import {
   addressList, blockTime, decodeReward, firstFullDay, logRanges, pairTwins, parseLatestRound, readFailed, registryAddress, trustedEmitters,
@@ -139,7 +140,15 @@ async function holderSets() {
 }
 
 // --- rewards ---------------------------------------------------------------------------------
-const RPC = process.env.BASE_RPC_URL || "https://mainnet.base.org";
+/** Base RPCs a run may read from; it uses the first that answers (BASE_RPC_URL, when set, goes first).
+ *  Base's own public RPC has refused every eth_getLogs since 2026-10-08 14:51 UTC ("request limit
+ *  reached", -32011), so the reader sat at block 52340886 and /rewards froze. Measured 2026-10-13 on
+ *  that block: the first three answer a 500-block topic query over old blocks (110 payouts, as
+ *  expected); publicnode wants an address filter and a token for old blocks, and drpc's free plan,
+ *  1rpc (50 blocks), tatum (100) and nodies refuse it. */
+const RPCS = [...new Set([process.env.BASE_RPC_URL, "https://base.gateway.tenderly.co", "https://base-rpc.polkachu.com",
+  "https://base.rpc.blxrbdn.com", "https://mainnet.base.org"].filter((u): u is string => !!u))];
+let RPC = RPCS[0];
 // Blocks per eth_getLogs call and calls per run: LOG_RANGE and LOG_CALLS in lib/rewards.ts
 const REWARD_BACKFILL = 43_200;  // the first run starts a day back
 const PRICE_FETCH_MAX = 60;      // unknown currencies priced per run; the rest wait for the next
@@ -161,6 +170,19 @@ async function rpc<T>(method: string, params: unknown[], tries = 4): Promise<T> 
   }
 }
 const hex = (n: number) => "0x" + n.toString(16);
+
+/** Points the run at one RPC, so the head and the logs come from the same node: the first in RPCS that
+ *  answers a one-block eth_getLogs at `block` (a block number in hex, or "latest"). False when none does. */
+async function chooseRpc(block: string): Promise<boolean> {
+  for (const url of RPCS) {
+    RPC = url;
+    try {
+      await rpc<RawLog[]>("eth_getLogs", [{ fromBlock: block, toBlock: block, topics: [[MARKET_TOPIC, CREATOR_TOPIC]] }], 2);
+      return true;
+    } catch (e) { log("rewards: skipping", new URL(url).hostname, String(e).slice(0, 100)); }
+  }
+  return false;
+}
 
 /** Zora's hooks, lowercased: the list in the registry Zora's coin factory names, read now, plus the older
  *  hooks the registry leaves out. Throws when the list can't be read or comes back empty. */
@@ -222,13 +244,19 @@ async function unitPrices(currencies: string[]): Promise<Map<string, number | nu
 
 async function rewards() {
   const run = startRun("rewards");
+  const cur = db.prepare("SELECT value FROM cursors WHERE name = 'rewards'").get() as { value: number } | undefined;
+  // probe at the next block to read, so the node chosen can serve old blocks when a run is catching up
+  if (!(await chooseRpc(cur ? hex(cur.value + 1) : "latest"))) {
+    log("rewards error: no RPC in the list answered eth_getLogs");
+    endRun(run, 0, 1, "no RPC answered"); process.exitCode = 1; return;
+  }
+  log("rewards: reading from", new URL(RPC).hostname);
   // without the list of Zora's hooks no payout event can be trusted: read nothing, and try again next hour
   const hooks = await zoraHooks().catch((e) => { log("rewards error: hook registry", String(e).slice(0, 160)); return null; });
   if (!hooks) { endRun(run, 0, 1, "hook registry unreadable"); process.exitCode = 1; return; }
   const head = parseInt(await rpc<string>("eth_blockNumber", []), 16) - 5; // a few blocks back from the tip
   const ref = await rpc<{ timestamp: string }>("eth_getBlockByNumber", [hex(head), false]);
   const refTs = parseInt(ref.timestamp, 16) * 1000;
-  const cur = db.prepare("SELECT value FROM cursors WHERE name = 'rewards'").get() as { value: number } | undefined;
   const start = cur?.value ?? head - REWARD_BACKFILL;
   const ranges = logRanges(start, head);
   const decoded: Reward[] = [];
